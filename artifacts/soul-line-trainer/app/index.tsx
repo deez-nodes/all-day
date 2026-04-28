@@ -74,10 +74,54 @@ export default function GameScreen() {
     return null;
   })();
 
+  // ── Auto-scroll to relevant station when picking ───────────────────────
+  const stationsScrollRef = React.useRef<ScrollView | null>(null);
+  const stationOffsets = React.useRef<Record<string, number>>({}).current;
+
+  React.useEffect(() => {
+    if (!state.picked || isLandscape) return;
+    let target: string | null = null;
+    if (state.picked.kind === "ingredient") {
+      const pickedId = state.picked.id;
+      const ing = [...PROTEINS, ...FRY_SIDES].find(i => i.id === pickedId);
+      if (ing) {
+        // Scroll to the top-most relevant station so the user can scan downward
+        // through all valid destinations (bread → fryer → grill → saute).
+        const stations = Object.keys(ing.direct);
+        if (stations.includes("bread")) target = "bread";
+        else if (stations.includes("fryer")) target = "fryer";
+        else if (stations.includes("grill")) target = "grill";
+        else if (stations.includes("saute")) target = "saute";
+      }
+    } else if (state.picked.kind === "breaded") {
+      target = "fryer";
+    } else if (state.picked.kind === "cooked") {
+      // Cooked proteins can go to sauté (Alfredo) or straight to the pass —
+      // scroll to sauté so both stations are visible together.
+      target = "saute";
+    } else if (state.picked.kind === "side" || state.picked.kind === "cold") {
+      target = "pass";
+    }
+    const tryScroll = (attempt: number) => {
+      if (!target) return;
+      const y = stationOffsets[target];
+      if (y !== undefined) {
+        stationsScrollRef.current?.scrollTo({ y: Math.max(0, y - 8), animated: true });
+      } else if (attempt < 3) {
+        setTimeout(() => tryScroll(attempt + 1), 80);
+      }
+    };
+    tryScroll(0);
+  }, [state.picked, isLandscape, stationOffsets]);
+
+  const onStationLayout = (key: string) => (e: { nativeEvent: { layout: { y: number } } }) => {
+    stationOffsets[key] = e.nativeEvent.layout.y;
+  };
+
   // ── Stations content (shared by portrait & landscape) ──────────────────
   const stationsContent = (
     <>
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("bread")}>
         <SectionHeader title="Breading" sub="30s" />
         <View style={styles.row3}>
           {state.bread.map((item, idx) => (
@@ -89,7 +133,7 @@ export default function GameScreen() {
         </View>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("fryer")}>
         <SectionHeader title="Fryer 350°F" sub="4 baskets" />
         <View style={styles.row4}>
           {state.fryer.map((item, idx) => (
@@ -100,7 +144,7 @@ export default function GameScreen() {
         </View>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("grill")}>
         <SectionHeader title="Grill 450°F" sub="Flip at midpoint" />
         <View style={styles.row4}>
           {state.grill.map((item, idx) => (
@@ -111,7 +155,7 @@ export default function GameScreen() {
         </View>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("saute")}>
         <SectionHeader title="Sauté · Alfredo" sub="4 min after cook" />
         <View style={styles.row2}>
           {state.saute.map((item, idx) => (
@@ -122,9 +166,9 @@ export default function GameScreen() {
         </View>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("hold")}>
         <SectionHeader title="Hot Hold" sub="Instant" />
-        <View style={styles.rowWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.instantScroll}>
           {HOLD_ITEMS.map(it => (
             <InstantButton
               key={it.id} name={it.name} kind="side"
@@ -132,12 +176,12 @@ export default function GameScreen() {
               onPress={() => pickInstant("side", it.id)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("window")}>
         <SectionHeader title="Window" sub="Drinks & Desserts" />
-        <View style={styles.rowWrap}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.instantScroll}>
           {COLD_ITEMS.map(it => (
             <InstantButton
               key={it.id} name={it.name} kind="cold"
@@ -145,17 +189,17 @@ export default function GameScreen() {
               onPress={() => pickInstant("cold", it.id)}
             />
           ))}
-        </View>
+        </ScrollView>
       </View>
 
-      <View style={styles.station}>
+      <View style={styles.station} onLayout={onStationLayout("pass")}>
         <SectionHeader title="The Pass" sub="Select ticket → plate" />
         <View style={styles.row3}>
           {state.pass.slice(0, 3).map((item, idx) => (
             <PassSlot key={idx} item={item} idx={idx} shiftSec={state.shiftSec} onPress={() => onPassPress(idx)} />
           ))}
         </View>
-        <View style={[styles.row3, { marginTop: 6 }]}>
+        <View style={[styles.row3, { marginTop: 5 }]}>
           {state.pass.slice(3, 6).map((item, idx) => (
             <PassSlot key={idx + 3} item={item} idx={idx + 3} shiftSec={state.shiftSec} onPress={() => onPassPress(idx + 3)} />
           ))}
@@ -351,8 +395,9 @@ export default function GameScreen() {
 
           {/* Stations — vertical scroll, takes most space */}
           <ScrollView
+            ref={stationsScrollRef}
             style={[styles.floor, { backgroundColor: colors.background }]}
-            showsVerticalScrollIndicator={false}
+            showsVerticalScrollIndicator={true}
             contentContainerStyle={styles.floorContent}
           >
             {stationsContent}
@@ -534,38 +579,38 @@ const styles = StyleSheet.create({
   // ── TOP BAR ────────────────────────────────────────────
   topbar: {
     borderBottomWidth: 1,
-    paddingHorizontal: 12,
-    paddingBottom: 8,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingBottom: 5,
+    gap: 4,
   },
   topbarRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  brand: { flexDirection: "row", alignItems: "center", gap: 10 },
+  brand: { flexDirection: "row", alignItems: "center", gap: 8 },
   dot: {
-    width: 8, height: 8, borderRadius: 4,
+    width: 7, height: 7, borderRadius: 4,
     shadowOffset: { width: 0, height: 0 }, shadowOpacity: 1, shadowRadius: 8,
   },
-  brandTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 1.5 },
-  brandSub: { fontSize: 8, letterSpacing: 2.5, textTransform: "uppercase" },
+  brandTitle: { fontSize: 13, fontWeight: "700", letterSpacing: 1.2 },
+  brandSub: { fontSize: 7, letterSpacing: 2, textTransform: "uppercase" },
   scoreRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   statItem: { alignItems: "center", flex: 1 },
-  statLabel: { fontSize: 7, letterSpacing: 2, textTransform: "uppercase" },
-  statVal: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
+  statLabel: { fontSize: 7, letterSpacing: 1.5, textTransform: "uppercase" },
+  statVal: { fontSize: 13, fontWeight: "700", letterSpacing: 0.5 },
   controls: { flexDirection: "row", gap: 4, alignItems: "center" },
   speedRow: { flexDirection: "row", gap: 0 },
-  speedBtn: { paddingHorizontal: 7, paddingVertical: 5, borderWidth: 1, borderRadius: 0 },
+  speedBtn: { paddingHorizontal: 6, paddingVertical: 4, borderWidth: 1, borderRadius: 0 },
   speedBtnLg: { paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderRadius: 0, flex: 1, alignItems: "center" },
   speedBtnText: { fontSize: 10, fontWeight: "700", letterSpacing: 1 },
-  ctrlBtn: { paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderRadius: 2, minWidth: 32, alignItems: "center" },
+  ctrlBtn: { paddingHorizontal: 8, paddingVertical: 4, borderWidth: 1, borderRadius: 2, minWidth: 30, alignItems: "center" },
   ctrlBtnText: { fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
 
   // ── HOLDING BANNER ────────────────────────────────────
   pickedBanner: {
-    paddingVertical: 8,
+    paddingVertical: 5,
     paddingHorizontal: 14,
     alignItems: "center",
   },
-  pickedText: { fontSize: 11, fontWeight: "700", letterSpacing: 1.5, color: "#1a0d04" },
-  pickedDrop: { fontSize: 9, color: "#1a0d04", opacity: 0.8, letterSpacing: 0.5, marginTop: 1 },
+  pickedText: { fontSize: 10, fontWeight: "700", letterSpacing: 1.5, color: "#1a0d04" },
+  pickedDrop: { fontSize: 8, color: "#1a0d04", opacity: 0.8, letterSpacing: 0.5, marginTop: 1 },
 
   // ── LANDSCAPE STAGE ───────────────────────────────────
   stage: { flex: 1, flexDirection: "row" },
@@ -588,48 +633,50 @@ const styles = StyleSheet.create({
   ticketsBar: {
     borderBottomWidth: 1,
     paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: 8,
+    paddingTop: 5,
+    paddingBottom: 6,
   },
   ticketsBarHead: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
-    marginBottom: 6,
+    marginBottom: 4,
   },
   ticketsBarScroll: { paddingRight: 8 },
 
   walkinBar: {
     borderTopWidth: 1,
     paddingHorizontal: 8,
-    paddingTop: 6,
+    paddingTop: 5,
   },
   walkinHead: {
     fontSize: 8, letterSpacing: 2, textTransform: "uppercase",
-    fontWeight: "600", marginBottom: 6,
+    fontWeight: "600", marginBottom: 4,
   },
-  walkinScroll: { paddingRight: 8, gap: 6, alignItems: "stretch" },
+  walkinScroll: { paddingRight: 8, gap: 5, alignItems: "stretch" },
   walkinDivider: { width: 1, marginHorizontal: 4 },
   ingCardH: {
-    padding: 7,
+    padding: 6,
     borderWidth: 1, borderLeftWidth: 3, borderRadius: 2,
-    width: 96, justifyContent: "space-between",
+    width: 92, justifyContent: "space-between",
+    minHeight: 50,
   },
 
   // ── STATIONS (shared) ─────────────────────────────────
   floor: { flex: 1 },
-  floorContent: { padding: 10, gap: 14, paddingBottom: 24 },
+  floorContent: { padding: 8, gap: 9, paddingBottom: 18 },
   station: {},
-  row4: { flexDirection: "row", gap: 6 },
-  row3: { flexDirection: "row", gap: 6 },
-  row2: { flexDirection: "row", gap: 6 },
+  row4: { flexDirection: "row", gap: 5 },
+  row3: { flexDirection: "row", gap: 5 },
+  row2: { flexDirection: "row", gap: 5 },
   rowWrap: { flexDirection: "row", gap: 5, flexWrap: "wrap" },
+  instantScroll: { gap: 5, paddingRight: 8 },
 
   passSlot: {
-    flex: 1, minHeight: 72, padding: 8, borderRadius: 2,
+    flex: 1, minHeight: 56, padding: 6, borderRadius: 2,
     borderWidth: 1, borderStyle: "dashed",
     justifyContent: "space-between",
   },
-  passEmpty: { fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", textAlign: "center", marginTop: 18 },
-  passItem: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 12 },
+  passEmpty: { fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", textAlign: "center", marginTop: 12 },
+  passItem: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 11 },
   passAge: { fontSize: 8, fontWeight: "700", letterSpacing: 1 },
 
   // ── LANDSCAPE TICKETS COLUMN ─────────────────────────
@@ -648,7 +695,7 @@ const styles = StyleSheet.create({
   },
   noTicketsH: {
     borderWidth: 1, borderStyle: "dashed", borderRadius: 4,
-    paddingVertical: 18, paddingHorizontal: 12, alignItems: "center",
+    paddingVertical: 10, paddingHorizontal: 12, alignItems: "center",
   },
   noTicketsText: { fontSize: 9, letterSpacing: 2, textTransform: "uppercase", textAlign: "center", lineHeight: 16 },
 
