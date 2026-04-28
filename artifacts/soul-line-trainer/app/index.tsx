@@ -936,13 +936,14 @@ const styles = StyleSheet.create({
   ingMeta: { fontSize: 8, letterSpacing: 0.5, marginTop: 2 },
 
   // ── PORTRAIT STAGE ────────────────────────────────────
-  stagePortrait: { flex: 1 },
+  stagePortrait: { flex: 1, flexDirection: "column", minHeight: 0 },
 
   ticketsBar: {
     borderBottomWidth: 1,
     paddingHorizontal: 8,
     paddingTop: 5,
     paddingBottom: 6,
+    flexShrink: 0,
   },
   ticketsBarHead: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
@@ -954,6 +955,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     paddingHorizontal: 8,
     paddingTop: 5,
+    flexShrink: 0,
+    minHeight: 78,
   },
   walkinHead: {
     fontSize: 8, letterSpacing: 2, textTransform: "uppercase",
@@ -969,7 +972,7 @@ const styles = StyleSheet.create({
   },
 
   // ── STATIONS (shared) ─────────────────────────────────
-  floor: { flex: 1 },
+  floor: { flex: 1, minHeight: 0 },
   floorContent: { padding: 8, gap: 9, paddingBottom: 18 },
   station: {},
   row4: { flexDirection: "row", gap: 5 },
