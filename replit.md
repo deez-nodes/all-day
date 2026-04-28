@@ -39,6 +39,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - Walk-in cards & Hot Hold/Window buttons show a small orange demand badge in the top-right corner with the count of open ticket items the ingredient could fulfill (collapses to "9+" past 9)
   - 3 difficulties: Stage/Sat Lunch/Fri Rush; 4 speed multipliers
 - **DnD gotcha**: `DropZone`'s `unregisterZone` cleanup must NOT depend on the live `ctx` value — store it in a ref. The `DndProvider` re-creates its context value whenever drag/hover state changes, and depending on `ctx` would unregister every zone mid-drag (only the first hover would land; subsequent drops would silently miss).
+- **Portrait layout gotcha**: in `app/index.tsx` styles, `walkinBar` and `ticketsBar` need `flexShrink: 0`, `walkinBar` needs `minHeight: 78`, `floor` (the stations ScrollView) needs `flex: 1, minHeight: 0`, and `stagePortrait` needs `flex: 1, minHeight: 0, flexDirection: "column"`. Without these, on initial mount on certain device heights the floor ScrollView can overflow and squish the walk-in bar offscreen — the walk-in only reappears after an orientation change forces a relayout.
 
 ## Key Commands
 
