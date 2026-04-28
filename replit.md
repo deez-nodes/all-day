@@ -16,6 +16,25 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
 
+## Artifacts
+
+### Soul · Line Trainer (`artifacts/soul-line-trainer`)
+- **Type**: Expo mobile app (React Native / Expo Router)
+- **Purpose**: Kitchen line trainer game for a Soul food restaurant
+- **Storage**: AsyncStorage (no backend needed)
+- **Key files**:
+  - `context/GameContext.tsx` — all game state, logic, order generation, tick loop
+  - `app/index.tsx` — main screen with 3-column layout: walk-in | stations | tickets
+  - `components/StationSlot.tsx` — cook/bread station slot with timer & progress
+  - `components/TicketCard.tsx` — KDS-style paper ticket card
+  - `constants/colors.ts` — dark Soul theme (hot orange #ff6a1f)
+- **Game mechanics**:
+  - Pick ingredients from walk-in → drop on stations (breading/fryer/grill/sauté)
+  - Timers count down with flip prompts; overcooking burns items
+  - Select ticket → plate cooked items to the Pass → press SEND
+  - Hot Hold (instant sides) + Window (drinks/desserts)
+  - 3 difficulties: Stage/Sat Lunch/Fri Rush; 4 speed multipliers
+
 ## Key Commands
 
 - `pnpm run typecheck` — full typecheck across all packages
