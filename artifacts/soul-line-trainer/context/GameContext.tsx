@@ -180,7 +180,7 @@ const DIFF: Record<Difficulty, { initialOrders: number; maxOrders: number; gapMi
 const NAMES = ["Bella Bella","Tasha M","Marcus J","Latoya","Demetrius","Aisha K","Jerome W","Keke","Amari R","Tyrese","Janelle B","DeAndre","Imani","Reggie","Tasha B","Kenya M","Mike T","Sarah L","Brittany","Darius","Malcolm","Nia","Jamal","Ericka","Trey","Latrice"];
 const ORDER_TYPES = ["Dine In","To Go","Dine In","To Go","To Go"];
 
-const pick = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
 
 // ─── MENU ─────────────────────────────────────────────────────────────────────
 

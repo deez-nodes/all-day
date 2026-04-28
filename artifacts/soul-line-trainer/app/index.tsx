@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import {
   Modal,
   Platform,
@@ -9,6 +9,7 @@ import {
   Text,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -31,17 +32,20 @@ const SPEEDS_LIST = [1, 3, 6, 12];
 export default function GameScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isLandscape = width >= 760;
+
   const {
     state,
-    startShift, endShift, togglePause, setSpeed, setDifficulty,
+    togglePause, setSpeed, endShift,
     pickIngredient, pickInstant, clearPick,
     onCookSlotPress, onBreadSlotPress, placeIntoSlot,
     onPassPress, selectTicket, sendOrder,
     fmtTime,
   } = useGame();
 
-  const topPad = Platform.OS === "web" ? 67 : insets.top;
-  const bottomPad = Platform.OS === "web" ? 34 : insets.bottom;
+  const topPad = Platform.OS === "web" ? 12 : insets.top;
+  const bottomPad = Platform.OS === "web" ? 12 : insets.bottom;
 
   const pickedLabel = (() => {
     if (!state.picked) return null;
@@ -70,20 +74,163 @@ export default function GameScreen() {
     return null;
   })();
 
+  // ── Stations content (shared by portrait & landscape) ──────────────────
+  const stationsContent = (
+    <>
+      <View style={styles.station}>
+        <SectionHeader title="Breading" sub="30s" />
+        <View style={styles.row3}>
+          {state.bread.map((item, idx) => (
+            <BreadStationSlot
+              key={idx} item={item} idx={idx}
+              onPress={() => item ? onBreadSlotPress(idx) : placeIntoSlot("bread", idx)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="Fryer 350°F" sub="4 baskets" />
+        <View style={styles.row4}>
+          {state.fryer.map((item, idx) => (
+            <CookStationSlot key={idx} item={item} kind="fryer" idx={idx}
+              shiftSec={state.shiftSec}
+              onPress={() => item ? onCookSlotPress("fryer", idx) : placeIntoSlot("fryer", idx)} />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="Grill 450°F" sub="Flip at midpoint" />
+        <View style={styles.row4}>
+          {state.grill.map((item, idx) => (
+            <CookStationSlot key={idx} item={item} kind="grill" idx={idx}
+              shiftSec={state.shiftSec}
+              onPress={() => item ? onCookSlotPress("grill", idx) : placeIntoSlot("grill", idx)} />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="Sauté · Alfredo" sub="4 min after cook" />
+        <View style={styles.row2}>
+          {state.saute.map((item, idx) => (
+            <CookStationSlot key={idx} item={item} kind="saute" idx={idx}
+              shiftSec={state.shiftSec}
+              onPress={() => item ? onCookSlotPress("saute", idx) : placeIntoSlot("saute", idx)} />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="Hot Hold" sub="Instant" />
+        <View style={styles.rowWrap}>
+          {HOLD_ITEMS.map(it => (
+            <InstantButton
+              key={it.id} name={it.name} kind="side"
+              selected={state.picked?.kind === "side" && state.picked.id === it.id}
+              onPress={() => pickInstant("side", it.id)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="Window" sub="Drinks & Desserts" />
+        <View style={styles.rowWrap}>
+          {COLD_ITEMS.map(it => (
+            <InstantButton
+              key={it.id} name={it.name} kind="cold"
+              selected={state.picked?.kind === "cold" && state.picked.id === it.id}
+              onPress={() => pickInstant("cold", it.id)}
+            />
+          ))}
+        </View>
+      </View>
+
+      <View style={styles.station}>
+        <SectionHeader title="The Pass" sub="Select ticket → plate" />
+        <View style={styles.row3}>
+          {state.pass.slice(0, 3).map((item, idx) => (
+            <PassSlot key={idx} item={item} idx={idx} shiftSec={state.shiftSec} onPress={() => onPassPress(idx)} />
+          ))}
+        </View>
+        <View style={[styles.row3, { marginTop: 6 }]}>
+          {state.pass.slice(3, 6).map((item, idx) => (
+            <PassSlot key={idx + 3} item={item} idx={idx + 3} shiftSec={state.shiftSec} onPress={() => onPassPress(idx + 3)} />
+          ))}
+        </View>
+      </View>
+    </>
+  );
+
+  // ── Walk-in (proteins + sides) ─────────────────────────────────────────
+  const renderIngCard = (ing: typeof PROTEINS[number], showFryer = false) => {
+    const isSelected = state.picked?.kind === "ingredient" && state.picked.id === ing.id;
+    const stations = showFryer ? "FRYER" : Object.keys(ing.direct).map(k => k.toUpperCase()).join("/");
+    return (
+      <Pressable
+        key={ing.id}
+        style={[
+          isLandscape ? styles.ingCard : styles.ingCardH,
+          {
+            backgroundColor: isSelected ? "rgba(255,106,31,0.08)" : colors.bg3,
+            borderColor: isSelected ? colors.hot : colors.line,
+            borderLeftColor: isSelected ? colors.hot : colors.inkFaint,
+          },
+        ]}
+        onPress={() => pickIngredient(ing.id)}
+      >
+        <Text style={[styles.ingName, { color: colors.foreground }]} numberOfLines={2}>{ing.name}</Text>
+        <Text style={[styles.ingMeta, { color: showFryer ? colors.hotLight : colors.inkFaint }]}>{stations}</Text>
+      </Pressable>
+    );
+  };
+
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
       <StatusBar barStyle="light-content" />
 
       {/* ── TOP BAR ──────────────────────────────────────── */}
       <View style={[styles.topbar, { paddingTop: topPad + 4, borderBottomColor: colors.line, backgroundColor: "#0e1012" }]}>
-        <View style={styles.brand}>
-          <View style={[styles.dot, { backgroundColor: colors.hot, shadowColor: colors.hot }]} />
-          <View>
-            <Text style={[styles.brandTitle, { color: colors.foreground }]}>
-              <Text style={{ color: colors.hot, fontStyle: "italic" }}>Soul</Text> · Line Trainer
-            </Text>
-            <Text style={[styles.brandSub, { color: colors.inkFaint }]}>SOUTHERN FOOD & VIBES</Text>
+        <View style={styles.topbarRow}>
+          <View style={styles.brand}>
+            <View style={[styles.dot, { backgroundColor: colors.hot, shadowColor: colors.hot }]} />
+            <View>
+              <Text style={[styles.brandTitle, { color: colors.foreground }]}>
+                <Text style={{ color: colors.hot, fontStyle: "italic" }}>Soul</Text> · Line
+              </Text>
+              <Text style={[styles.brandSub, { color: colors.inkFaint }]}>SOUTHERN FOOD</Text>
+            </View>
           </View>
+
+          {state.started && (
+            <View style={styles.controls}>
+              <View style={styles.speedRow}>
+                {SPEEDS_LIST.map(sp => (
+                  <Pressable
+                    key={sp}
+                    style={[styles.speedBtn, { borderColor: colors.line2, backgroundColor: state.speed === sp ? colors.hot : colors.bg3 }]}
+                    onPress={() => setSpeed(sp)}
+                  >
+                    <Text style={[styles.speedBtnText, { color: state.speed === sp ? "#1a0d04" : colors.foreground }]}>{sp}×</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <TouchableOpacity
+                style={[styles.ctrlBtn, { backgroundColor: colors.bg3, borderColor: colors.line2 }]}
+                onPress={togglePause}
+              >
+                <Text style={[styles.ctrlBtnText, { color: colors.foreground }]}>{state.paused ? "▶" : "⏸"}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.ctrlBtn, { backgroundColor: "transparent", borderColor: colors.line2 }]}
+                onPress={endShift}
+              >
+                <Text style={[styles.ctrlBtnText, { color: colors.inkFaint }]}>END</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.scoreRow}>
@@ -100,34 +247,6 @@ export default function GameScreen() {
             </View>
           ))}
         </View>
-
-        {state.started && (
-          <View style={styles.controls}>
-            <View style={styles.speedRow}>
-              {SPEEDS_LIST.map(sp => (
-                <Pressable
-                  key={sp}
-                  style={[styles.speedBtn, { borderColor: colors.line2, backgroundColor: state.speed === sp ? colors.hot : colors.bg3 }]}
-                  onPress={() => setSpeed(sp)}
-                >
-                  <Text style={[styles.speedBtnText, { color: state.speed === sp ? "#1a0d04" : colors.foreground }]}>{sp}×</Text>
-                </Pressable>
-              ))}
-            </View>
-            <TouchableOpacity
-              style={[styles.ctrlBtn, { backgroundColor: colors.bg3, borderColor: colors.line2 }]}
-              onPress={togglePause}
-            >
-              <Text style={[styles.ctrlBtnText, { color: colors.foreground }]}>{state.paused ? "RESUME" : "PAUSE"}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.ctrlBtn, { backgroundColor: "transparent", borderColor: colors.line2 }]}
-              onPress={endShift}
-            >
-              <Text style={[styles.ctrlBtnText, { color: colors.inkFaint }]}>END</Text>
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
 
       {/* ── HOLDING BANNER ────────────────────────────────── */}
@@ -137,198 +256,126 @@ export default function GameScreen() {
           onPress={clearPick}
         >
           <Text style={styles.pickedText}>HOLDING · {pickedLabel.name.toUpperCase()}</Text>
-          <Text style={styles.pickedDrop}>{pickedLabel.drop} · Tap here to drop</Text>
+          <Text style={styles.pickedDrop}>{pickedLabel.drop} · Tap to drop</Text>
         </Pressable>
       )}
 
-      {/* ── MAIN 3-COLUMN ────────────────────────────────── */}
-      <View style={styles.stage}>
+      {/* ── MAIN STAGE ────────────────────────────────────── */}
+      {isLandscape ? (
+        // ─── LANDSCAPE: 3-column ─────────────────────────────────────
+        <View style={styles.stage}>
+          <ScrollView
+            style={[styles.sidebar, { backgroundColor: colors.bg2, borderRightColor: colors.line }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.sidebarContent, { paddingBottom: bottomPad + 20 }]}
+          >
+            <Text style={[styles.sidebarHead, { color: colors.inkFaint, borderBottomColor: colors.line }]}>PROTEINS</Text>
+            {PROTEINS.map(ing => renderIngCard(ing))}
+            <Text style={[styles.sidebarHead, { color: colors.inkFaint, borderBottomColor: colors.line, marginTop: 10 }]}>SIDES</Text>
+            {FRY_SIDES.map(ing => renderIngCard(ing, true))}
+          </ScrollView>
 
-        {/* LEFT: WALK-IN SIDEBAR */}
-        <ScrollView
-          style={[styles.sidebar, { backgroundColor: colors.bg2, borderRightColor: colors.line }]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.sidebarContent, { paddingBottom: bottomPad + 20 }]}
-        >
-          <Text style={[styles.sidebarHead, { color: colors.inkFaint, borderBottomColor: colors.line }]}>PROTEINS</Text>
-          {PROTEINS.map(ing => {
-            const isSelected = state.picked?.kind === "ingredient" && state.picked.id === ing.id;
-            const stations = Object.keys(ing.direct).map(k => k.toUpperCase()).join("/");
-            return (
-              <Pressable
-                key={ing.id}
-                style={[
-                  styles.ingCard,
-                  {
-                    backgroundColor: isSelected ? "rgba(255,106,31,0.08)" : colors.bg3,
-                    borderColor: isSelected ? colors.hot : colors.line,
-                    borderLeftColor: isSelected ? colors.hot : colors.inkFaint,
-                  },
-                ]}
-                onPress={() => pickIngredient(ing.id)}
+          <ScrollView
+            style={[styles.floor, { backgroundColor: colors.background }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.floorContent, { paddingBottom: bottomPad + 20 }]}
+          >
+            {stationsContent}
+          </ScrollView>
+
+          <ScrollView
+            style={[styles.tickets, { backgroundColor: "#0e1012", borderLeftColor: colors.line }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={[styles.ticketsContent, { paddingBottom: bottomPad + 20 }]}
+          >
+            <View style={[styles.ticketsHead, { borderBottomColor: colors.line }]}>
+              <Text style={[styles.ticketsTitle, { color: colors.inkFaint }]}>TICKETS</Text>
+              <View style={[styles.ticketsBadge, { backgroundColor: colors.hot }]}>
+                <Text style={styles.ticketsBadgeText}>{state.orders.length}</Text>
+              </View>
+            </View>
+
+            {state.orders.length === 0 ? (
+              <View style={[styles.noTickets, { borderColor: colors.line2 }]}>
+                <Text style={[styles.noTicketsText, { color: colors.inkFaint }]}>NO TICKETS{"\n"}WAITING…</Text>
+              </View>
+            ) : (
+              state.orders.map(ord => (
+                <TicketCard
+                  key={ord.id}
+                  order={ord}
+                  selected={state.selectedTicket === ord.id}
+                  shiftSec={state.shiftSec}
+                  onSelect={() => selectTicket(ord.id)}
+                  onSend={() => sendOrder(ord.id)}
+                />
+              ))
+            )}
+          </ScrollView>
+        </View>
+      ) : (
+        // ─── PORTRAIT: stacked vertical ──────────────────────────────
+        <View style={styles.stagePortrait}>
+          {/* Tickets — horizontal scroll on top */}
+          <View style={[styles.ticketsBar, { backgroundColor: "#0e1012", borderBottomColor: colors.line }]}>
+            <View style={styles.ticketsBarHead}>
+              <Text style={[styles.ticketsTitle, { color: colors.inkFaint }]}>TICKETS</Text>
+              <View style={[styles.ticketsBadge, { backgroundColor: colors.hot }]}>
+                <Text style={styles.ticketsBadgeText}>{state.orders.length}</Text>
+              </View>
+            </View>
+            {state.orders.length === 0 ? (
+              <View style={[styles.noTicketsH, { borderColor: colors.line2 }]}>
+                <Text style={[styles.noTicketsText, { color: colors.inkFaint }]}>NO TICKETS WAITING…</Text>
+              </View>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.ticketsBarScroll}
               >
-                <Text style={[styles.ingName, { color: colors.foreground }]}>{ing.name}</Text>
-                <Text style={[styles.ingMeta, { color: colors.inkFaint }]}>{stations}</Text>
-              </Pressable>
-            );
-          })}
-
-          <Text style={[styles.sidebarHead, { color: colors.inkFaint, borderBottomColor: colors.line, marginTop: 10 }]}>SIDES</Text>
-          {FRY_SIDES.map(ing => {
-            const isSelected = state.picked?.kind === "ingredient" && state.picked.id === ing.id;
-            return (
-              <Pressable
-                key={ing.id}
-                style={[
-                  styles.ingCard,
-                  {
-                    borderColor: isSelected ? colors.hot : colors.line,
-                    borderLeftColor: isSelected ? colors.hot : colors.inkFaint,
-                    backgroundColor: isSelected ? "rgba(255,106,31,0.08)" : colors.bg3,
-                  },
-                ]}
-                onPress={() => pickIngredient(ing.id)}
-              >
-                <Text style={[styles.ingName, { color: colors.foreground }]}>{ing.name}</Text>
-                <Text style={[styles.ingMeta, { color: colors.hotLight }]}>FRYER</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        {/* CENTER: STATIONS */}
-        <ScrollView
-          style={[styles.floor, { backgroundColor: colors.background }]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.floorContent, { paddingBottom: bottomPad + 20 }]}
-        >
-          {/* Breading */}
-          <View style={styles.station}>
-            <SectionHeader title="Breading" sub="30s" />
-            <View style={styles.row3}>
-              {state.bread.map((item, idx) => (
-                <BreadStationSlot
-                  key={idx} item={item} idx={idx}
-                  onPress={() => item ? onBreadSlotPress(idx) : placeIntoSlot("bread", idx)}
-                />
-              ))}
-            </View>
+                {state.orders.map(ord => (
+                  <TicketCard
+                    key={ord.id}
+                    order={ord}
+                    selected={state.selectedTicket === ord.id}
+                    shiftSec={state.shiftSec}
+                    onSelect={() => selectTicket(ord.id)}
+                    onSend={() => sendOrder(ord.id)}
+                    compact
+                  />
+                ))}
+              </ScrollView>
+            )}
           </View>
 
-          {/* Fryer */}
-          <View style={styles.station}>
-            <SectionHeader title="Fryer 350°F" sub="4 baskets" />
-            <View style={styles.row4}>
-              {state.fryer.map((item, idx) => (
-                <CookStationSlot key={idx} item={item} kind="fryer" idx={idx}
-                  shiftSec={state.shiftSec}
-                  onPress={() => item ? onCookSlotPress("fryer", idx) : placeIntoSlot("fryer", idx)} />
-              ))}
-            </View>
-          </View>
+          {/* Stations — vertical scroll, takes most space */}
+          <ScrollView
+            style={[styles.floor, { backgroundColor: colors.background }]}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.floorContent}
+          >
+            {stationsContent}
+          </ScrollView>
 
-          {/* Grill */}
-          <View style={styles.station}>
-            <SectionHeader title="Grill 450°F" sub="Flip at midpoint" />
-            <View style={styles.row4}>
-              {state.grill.map((item, idx) => (
-                <CookStationSlot key={idx} item={item} kind="grill" idx={idx}
-                  shiftSec={state.shiftSec}
-                  onPress={() => item ? onCookSlotPress("grill", idx) : placeIntoSlot("grill", idx)} />
-              ))}
-            </View>
+          {/* Walk-in — horizontal scroll at bottom */}
+          <View style={[styles.walkinBar, { backgroundColor: colors.bg2, borderTopColor: colors.line, paddingBottom: bottomPad + 4 }]}>
+            <Text style={[styles.walkinHead, { color: colors.inkFaint }]}>WALK-IN · TAP TO PICK</Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.walkinScroll}
+            >
+              {PROTEINS.map(ing => renderIngCard(ing))}
+              <View style={[styles.walkinDivider, { backgroundColor: colors.line2 }]} />
+              {FRY_SIDES.map(ing => renderIngCard(ing, true))}
+            </ScrollView>
           </View>
-
-          {/* Sauté */}
-          <View style={styles.station}>
-            <SectionHeader title="Sauté · Alfredo" sub="4 min after cook" />
-            <View style={styles.row2}>
-              {state.saute.map((item, idx) => (
-                <CookStationSlot key={idx} item={item} kind="saute" idx={idx}
-                  shiftSec={state.shiftSec}
-                  onPress={() => item ? onCookSlotPress("saute", idx) : placeIntoSlot("saute", idx)} />
-              ))}
-            </View>
-          </View>
-
-          {/* Hot Hold */}
-          <View style={styles.station}>
-            <SectionHeader title="Hot Hold" sub="Instant" />
-            <View style={styles.rowWrap}>
-              {HOLD_ITEMS.map(it => (
-                <InstantButton
-                  key={it.id} name={it.name} kind="side"
-                  selected={state.picked?.kind === "side" && state.picked.id === it.id}
-                  onPress={() => pickInstant("side", it.id)}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Window */}
-          <View style={styles.station}>
-            <SectionHeader title="Window" sub="Drinks & Desserts" />
-            <View style={styles.rowWrap}>
-              {COLD_ITEMS.map(it => (
-                <InstantButton
-                  key={it.id} name={it.name} kind="cold"
-                  selected={state.picked?.kind === "cold" && state.picked.id === it.id}
-                  onPress={() => pickInstant("cold", it.id)}
-                />
-              ))}
-            </View>
-          </View>
-
-          {/* Pass */}
-          <View style={styles.station}>
-            <SectionHeader title="The Pass" sub="Select ticket → plate" />
-            <View style={styles.row3}>
-              {state.pass.slice(0, 3).map((item, idx) => (
-                <PassSlot key={idx} item={item} idx={idx} shiftSec={state.shiftSec} onPress={() => onPassPress(idx)} />
-              ))}
-            </View>
-            <View style={[styles.row3, { marginTop: 6 }]}>
-              {state.pass.slice(3, 6).map((item, idx) => (
-                <PassSlot key={idx + 3} item={item} idx={idx + 3} shiftSec={state.shiftSec} onPress={() => onPassPress(idx + 3)} />
-              ))}
-            </View>
-          </View>
-        </ScrollView>
-
-        {/* RIGHT: TICKETS */}
-        <ScrollView
-          style={[styles.tickets, { backgroundColor: "#0e1012", borderLeftColor: colors.line }]}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.ticketsContent, { paddingBottom: bottomPad + 20 }]}
-        >
-          <View style={[styles.ticketsHead, { borderBottomColor: colors.line }]}>
-            <Text style={[styles.ticketsTitle, { color: colors.inkFaint }]}>TICKETS</Text>
-            <View style={[styles.ticketsBadge, { backgroundColor: colors.hot }]}>
-              <Text style={styles.ticketsBadgeText}>{state.orders.length}</Text>
-            </View>
-          </View>
-
-          {state.orders.length === 0 ? (
-            <View style={[styles.noTickets, { borderColor: colors.line2 }]}>
-              <Text style={[styles.noTicketsText, { color: colors.inkFaint }]}>NO TICKETS{"\n"}WAITING…</Text>
-            </View>
-          ) : (
-            state.orders.map(ord => (
-              <TicketCard
-                key={ord.id}
-                order={ord}
-                selected={state.selectedTicket === ord.id}
-                shiftSec={state.shiftSec}
-                onSelect={() => selectTicket(ord.id)}
-                onSend={() => sendOrder(ord.id)}
-              />
-            ))
-          )}
-        </ScrollView>
-      </View>
+        </View>
+      )}
 
       {/* ── TOAST ZONE ─────────────────────────────────── */}
-      <View style={[styles.toastZone, { bottom: bottomPad + 8 }]} pointerEvents="none">
+      <View style={[styles.toastZone, { bottom: bottomPad + 120 }]} pointerEvents="none">
         {state.toasts.map(t => (
           <View key={t.id} style={[
             styles.toast,
@@ -388,7 +435,7 @@ function IntroModal() {
   const { state, startShift, setDifficulty, setSpeed } = useGame();
 
   const DIFF_LABELS = [
-    { key: "easy" as Difficulty, label: "Stage", sub: "Easy mode" },
+    { key: "easy" as Difficulty, label: "Stage", sub: "Easy" },
     { key: "medium" as Difficulty, label: "Sat Lunch", sub: "Medium" },
     { key: "hard" as Difficulty, label: "Fri Rush", sub: "Hard" },
   ];
@@ -453,7 +500,7 @@ function IntroModal() {
         <Text style={[styles.modalSectionHead, { color: colors.hotLight }]}>SPEED</Text>
         <View style={styles.speedRow}>
           {SPEEDS_LIST.map(sp => (
-            <Pressable key={sp} style={[styles.speedBtn, { borderColor: colors.line2, backgroundColor: state.speed === sp ? colors.hot : colors.bg3 }]} onPress={() => setSpeed(sp)}>
+            <Pressable key={sp} style={[styles.speedBtnLg, { borderColor: colors.line2, backgroundColor: state.speed === sp ? colors.hot : colors.bg3 }]} onPress={() => setSpeed(sp)}>
               <Text style={[styles.speedBtnText, { color: state.speed === sp ? "#1a0d04" : colors.foreground }]}>{sp}×</Text>
             </Pressable>
           ))}
@@ -483,12 +530,15 @@ function IntroModal() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+
+  // ── TOP BAR ────────────────────────────────────────────
   topbar: {
     borderBottomWidth: 1,
     paddingHorizontal: 12,
     paddingBottom: 8,
     gap: 6,
   },
+  topbarRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   brand: { flexDirection: "row", alignItems: "center", gap: 10 },
   dot: {
     width: 8, height: 8, borderRadius: 4,
@@ -496,17 +546,19 @@ const styles = StyleSheet.create({
   },
   brandTitle: { fontSize: 14, fontWeight: "700", letterSpacing: 1.5 },
   brandSub: { fontSize: 8, letterSpacing: 2.5, textTransform: "uppercase" },
-  scoreRow: { flexDirection: "row", gap: 12, alignItems: "center" },
-  statItem: { alignItems: "center" },
+  scoreRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  statItem: { alignItems: "center", flex: 1 },
   statLabel: { fontSize: 7, letterSpacing: 2, textTransform: "uppercase" },
   statVal: { fontSize: 14, fontWeight: "700", letterSpacing: 0.5 },
-  controls: { flexDirection: "row", gap: 6, alignItems: "center" },
+  controls: { flexDirection: "row", gap: 4, alignItems: "center" },
   speedRow: { flexDirection: "row", gap: 0 },
-  speedBtn: { paddingHorizontal: 8, paddingVertical: 5, borderWidth: 1, borderRadius: 0 },
+  speedBtn: { paddingHorizontal: 7, paddingVertical: 5, borderWidth: 1, borderRadius: 0 },
+  speedBtnLg: { paddingHorizontal: 14, paddingVertical: 9, borderWidth: 1, borderRadius: 0, flex: 1, alignItems: "center" },
   speedBtnText: { fontSize: 10, fontWeight: "700", letterSpacing: 1 },
-  ctrlBtn: { paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderRadius: 2 },
-  ctrlBtnText: { fontSize: 10, fontWeight: "700", letterSpacing: 1.5, textTransform: "uppercase" },
+  ctrlBtn: { paddingHorizontal: 9, paddingVertical: 5, borderWidth: 1, borderRadius: 2, minWidth: 32, alignItems: "center" },
+  ctrlBtnText: { fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
 
+  // ── HOLDING BANNER ────────────────────────────────────
   pickedBanner: {
     paddingVertical: 8,
     paddingHorizontal: 14,
@@ -515,9 +567,9 @@ const styles = StyleSheet.create({
   pickedText: { fontSize: 11, fontWeight: "700", letterSpacing: 1.5, color: "#1a0d04" },
   pickedDrop: { fontSize: 9, color: "#1a0d04", opacity: 0.8, letterSpacing: 0.5, marginTop: 1 },
 
+  // ── LANDSCAPE STAGE ───────────────────────────────────
   stage: { flex: 1, flexDirection: "row" },
-
-  sidebar: { width: 100, borderRightWidth: 1 },
+  sidebar: { width: 110, borderRightWidth: 1 },
   sidebarContent: { padding: 8 },
   sidebarHead: {
     fontSize: 8, letterSpacing: 2, textTransform: "uppercase",
@@ -527,11 +579,44 @@ const styles = StyleSheet.create({
     padding: 7, marginBottom: 4,
     borderWidth: 1, borderLeftWidth: 3, borderRadius: 2,
   },
-  ingName: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 11 },
+  ingName: { fontSize: 10, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 12 },
   ingMeta: { fontSize: 8, letterSpacing: 0.5, marginTop: 2 },
 
+  // ── PORTRAIT STAGE ────────────────────────────────────
+  stagePortrait: { flex: 1 },
+
+  ticketsBar: {
+    borderBottomWidth: 1,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+    paddingBottom: 8,
+  },
+  ticketsBarHead: {
+    flexDirection: "row", justifyContent: "space-between", alignItems: "center",
+    marginBottom: 6,
+  },
+  ticketsBarScroll: { paddingRight: 8 },
+
+  walkinBar: {
+    borderTopWidth: 1,
+    paddingHorizontal: 8,
+    paddingTop: 6,
+  },
+  walkinHead: {
+    fontSize: 8, letterSpacing: 2, textTransform: "uppercase",
+    fontWeight: "600", marginBottom: 6,
+  },
+  walkinScroll: { paddingRight: 8, gap: 6, alignItems: "stretch" },
+  walkinDivider: { width: 1, marginHorizontal: 4 },
+  ingCardH: {
+    padding: 7,
+    borderWidth: 1, borderLeftWidth: 3, borderRadius: 2,
+    width: 96, justifyContent: "space-between",
+  },
+
+  // ── STATIONS (shared) ─────────────────────────────────
   floor: { flex: 1 },
-  floorContent: { padding: 10, gap: 14 },
+  floorContent: { padding: 10, gap: 14, paddingBottom: 24 },
   station: {},
   row4: { flexDirection: "row", gap: 6 },
   row3: { flexDirection: "row", gap: 6 },
@@ -547,21 +632,27 @@ const styles = StyleSheet.create({
   passItem: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 12 },
   passAge: { fontSize: 8, fontWeight: "700", letterSpacing: 1 },
 
-  tickets: { width: 160, borderLeftWidth: 1 },
+  // ── LANDSCAPE TICKETS COLUMN ─────────────────────────
+  tickets: { width: 200, borderLeftWidth: 1 },
   ticketsContent: { padding: 8 },
   ticketsHead: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     marginBottom: 10, borderBottomWidth: 1, paddingBottom: 6,
   },
-  ticketsTitle: { fontSize: 9, letterSpacing: 2.5, textTransform: "uppercase", fontWeight: "600" },
-  ticketsBadge: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 2 },
+  ticketsTitle: { fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", fontWeight: "600" },
+  ticketsBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 2 },
   ticketsBadgeText: { color: "#1a0d04", fontWeight: "700", fontSize: 11 },
   noTickets: {
     borderWidth: 1, borderStyle: "dashed", borderRadius: 4,
     paddingVertical: 20, alignItems: "center",
   },
+  noTicketsH: {
+    borderWidth: 1, borderStyle: "dashed", borderRadius: 4,
+    paddingVertical: 18, paddingHorizontal: 12, alignItems: "center",
+  },
   noTicketsText: { fontSize: 9, letterSpacing: 2, textTransform: "uppercase", textAlign: "center", lineHeight: 16 },
 
+  // ── TOASTS ───────────────────────────────────────────
   toastZone: {
     position: "absolute",
     left: 0, right: 0, alignItems: "center",
@@ -574,38 +665,38 @@ const styles = StyleSheet.create({
   },
   toastText: { fontSize: 11, letterSpacing: 1, textTransform: "uppercase", fontWeight: "600" },
 
-  // MODAL
+  // ── MODAL ────────────────────────────────────────────
   modalBg: { flex: 1, backgroundColor: "rgba(0,0,0,0.85)", justifyContent: "center", alignItems: "center" },
   modalScroll: { padding: 16, minHeight: "100%" as any, justifyContent: "center" },
   modal: {
     borderWidth: 1, borderRadius: 2,
-    padding: 20, width: "100%", maxWidth: 420,
+    padding: 20, width: "100%", maxWidth: 460,
     alignSelf: "center",
     shadowColor: "#000", shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.8, shadowRadius: 40,
   },
   modalAccentBar: { height: 3, borderRadius: 1, marginBottom: 14, marginHorizontal: -20, marginTop: -20, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
-  modalTitle: { fontSize: 22, fontWeight: "800", letterSpacing: 2, marginBottom: 2 },
+  modalTitle: { fontSize: 24, fontWeight: "800", letterSpacing: 2, marginBottom: 2 },
   modalSub: { fontSize: 10, letterSpacing: 2.5, textTransform: "uppercase", marginBottom: 14 },
   bestScore: { padding: 10, borderRadius: 2, borderWidth: 1, alignItems: "center", marginBottom: 14 },
   bestScoreLabel: { fontSize: 8, letterSpacing: 2.5, textTransform: "uppercase" },
   bestScoreVal: { fontSize: 28, fontWeight: "800", letterSpacing: 1 },
-  modalSectionHead: { fontSize: 10, letterSpacing: 2, textTransform: "uppercase", fontWeight: "700", marginTop: 14, marginBottom: 6 },
+  modalSectionHead: { fontSize: 11, letterSpacing: 2, textTransform: "uppercase", fontWeight: "700", marginTop: 14, marginBottom: 6 },
   refGrid: { gap: 0 },
   refRow: {
     flexDirection: "row", justifyContent: "space-between",
-    paddingVertical: 4, borderBottomWidth: 1, borderStyle: "dashed",
+    paddingVertical: 5, borderBottomWidth: 1, borderStyle: "dashed",
   },
-  refKey: { fontSize: 11, fontWeight: "700", flex: 1 },
-  refVal: { fontSize: 11, fontFamily: "Inter_400Regular", flex: 1, textAlign: "right" },
+  refKey: { fontSize: 12, fontWeight: "700", flex: 1 },
+  refVal: { fontSize: 12, flex: 1, textAlign: "right" },
   diffRow: { flexDirection: "row", gap: 6 },
   diffBtn: {
-    flex: 1, padding: 8, borderRadius: 2, borderWidth: 1,
+    flex: 1, padding: 10, borderRadius: 2, borderWidth: 1,
     alignItems: "center",
   },
-  diffBtnText: { fontSize: 10, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
-  diffBtnSub: { fontSize: 8, letterSpacing: 0.5, marginTop: 2 },
+  diffBtnText: { fontSize: 11, fontWeight: "700", letterSpacing: 1, textTransform: "uppercase" },
+  diffBtnSub: { fontSize: 9, letterSpacing: 0.5, marginTop: 2 },
   startBtn: {
-    marginTop: 18, paddingVertical: 14, borderRadius: 2,
+    marginTop: 18, paddingVertical: 16, borderRadius: 2,
     alignItems: "center",
     shadowColor: "#ff6a1f", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.6, shadowRadius: 12,
   },
