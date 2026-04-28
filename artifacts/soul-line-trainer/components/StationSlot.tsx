@@ -7,8 +7,10 @@ interface CookStationSlotProps {
   item: CookSlot | null;
   kind: "fryer" | "grill" | "saute";
   idx: number;
-  onPress: () => void;
+  onPress?: () => void;
   shiftSec: number;
+  /** Render as non-interactive View when parent handles touches (e.g. Draggable). */
+  asView?: boolean;
 }
 
 function fmtTime(s: number): string {
@@ -16,7 +18,7 @@ function fmtTime(s: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function CookStationSlot({ item, kind, idx, onPress, shiftSec }: CookStationSlotProps) {
+export function CookStationSlot({ item, kind, idx, onPress, shiftSec, asView }: CookStationSlotProps) {
   const colors = useColors();
 
   if (!item) {
@@ -57,11 +59,8 @@ export function CookStationSlot({ item, kind, idx, onPress, shiftSec }: CookStat
 
   const progressColor = item.overcooked ? colors.burn : item.done ? colors.done : colors.hot;
 
-  return (
-    <Pressable
-      style={[styles.slot, { backgroundColor: colors.bg2, borderColor, borderWidth: 1.5 }]}
-      onPress={onPress}
-    >
+  const slotContent = (
+    <>
       <View>
         <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>{c.label}</Text>
         <Text style={[styles.status, { color: statusText === "FLIP NOW!" ? colors.warn : statusText.includes("DONE") ? colors.done : statusText.includes("BURNT") ? colors.burn : colors.inkDim }]}>{statusText}</Text>
@@ -72,17 +71,26 @@ export function CookStationSlot({ item, kind, idx, onPress, shiftSec }: CookStat
           <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: progressColor }]} />
         </View>
       </View>
-    </Pressable>
+    </>
+  );
+
+  const slotStyle = [styles.slot, { backgroundColor: colors.bg2, borderColor, borderWidth: 1.5 }];
+  if (asView) {
+    return <View style={slotStyle}>{slotContent}</View>;
+  }
+  return (
+    <Pressable style={slotStyle} onPress={onPress}>{slotContent}</Pressable>
   );
 }
 
 interface BreadStationSlotProps {
   item: BreadSlot | null;
   idx: number;
-  onPress: () => void;
+  onPress?: () => void;
+  asView?: boolean;
 }
 
-export function BreadStationSlot({ item, idx, onPress }: BreadStationSlotProps) {
+export function BreadStationSlot({ item, idx, onPress, asView }: BreadStationSlotProps) {
   const colors = useColors();
 
   if (!item) {
@@ -96,11 +104,9 @@ export function BreadStationSlot({ item, idx, onPress }: BreadStationSlotProps) 
   const pct = Math.min(100, (item.elapsed / 30) * 100);
   const remain = Math.max(0, 30 - item.elapsed);
 
-  return (
-    <Pressable
-      style={[styles.slot, { backgroundColor: colors.bg2, borderColor: item.done ? colors.done : colors.warn, borderWidth: 1.5 }]}
-      onPress={onPress}
-    >
+  const slotStyle = [styles.slot, { backgroundColor: colors.bg2, borderColor: item.done ? colors.done : colors.warn, borderWidth: 1.5 }];
+  const slotContent = (
+    <>
       <View>
         <Text style={[styles.itemName, { color: colors.foreground }]} numberOfLines={2}>Breading</Text>
         <Text style={[styles.status, { color: item.done ? colors.done : colors.hotLight }]}>
@@ -115,8 +121,13 @@ export function BreadStationSlot({ item, idx, onPress }: BreadStationSlotProps) 
           <View style={[styles.progressFill, { width: `${pct}%` as any, backgroundColor: item.done ? colors.done : colors.warn }]} />
         </View>
       </View>
-    </Pressable>
+    </>
   );
+
+  if (asView) {
+    return <View style={slotStyle}>{slotContent}</View>;
+  }
+  return <Pressable style={slotStyle} onPress={onPress}>{slotContent}</Pressable>;
 }
 
 const styles = StyleSheet.create({

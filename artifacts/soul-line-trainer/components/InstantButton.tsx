@@ -6,28 +6,40 @@ interface Props {
   name: string;
   selected: boolean;
   kind: "side" | "cold";
-  onPress: () => void;
+  onPress?: () => void;
+  /**
+   * If `true`, renders a non-interactive View instead of a Pressable.
+   * Use when the parent (e.g. a Draggable) already handles touches.
+   */
+  asView?: boolean;
 }
 
-export function InstantButton({ name, selected, kind, onPress }: Props) {
+export function InstantButton({ name, selected, kind, onPress, asView }: Props) {
   const colors = useColors();
   const isCold = kind === "cold";
 
+  const style = [
+    styles.btn,
+    {
+      backgroundColor: isCold ? "#1c2d3a" : colors.bg3,
+      borderColor: selected ? colors.hot : isCold ? "#2c4459" : colors.line2,
+      borderWidth: selected ? 2 : 1,
+    },
+  ];
+
+  const content = (
+    <Text style={[styles.name, { color: selected ? colors.hot : colors.foreground }]} numberOfLines={2}>
+      {name}
+    </Text>
+  );
+
+  if (asView) {
+    return <View style={style}>{content}</View>;
+  }
+
   return (
-    <Pressable
-      style={[
-        styles.btn,
-        {
-          backgroundColor: isCold ? "#1c2d3a" : colors.bg3,
-          borderColor: selected ? colors.hot : isCold ? "#2c4459" : colors.line2,
-          borderWidth: selected ? 2 : 1,
-        },
-      ]}
-      onPress={onPress}
-    >
-      <Text style={[styles.name, { color: selected ? colors.hot : colors.foreground }]} numberOfLines={2}>
-        {name}
-      </Text>
+    <Pressable style={style} onPress={onPress}>
+      {content}
     </Pressable>
   );
 }

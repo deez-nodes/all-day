@@ -14,6 +14,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { GameProvider } from "@/context/GameContext";
+import { DndProvider } from "@/lib/dnd";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -39,9 +40,11 @@ export default function RootLayout() {
         <GameProvider>
           <GestureHandlerRootView style={{ flex: 1 }}>
             <KeyboardProvider>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="index" />
-              </Stack>
+              <DndProvider>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="index" />
+                </Stack>
+              </DndProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
         </GameProvider>

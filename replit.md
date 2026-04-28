@@ -26,15 +26,19 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
   - `context/GameContext.tsx` — all game state, logic, order generation, tick loop
   - `app/index.tsx` — main screen, responsive: 3-column landscape (walk-in | stations | tickets) and stacked portrait (header / h-scroll tickets / vertical stations / h-scroll walk-in) when window width < 760
   - Portrait mode auto-scrolls the stations area to the relevant station when an ingredient is picked, using onLayout-captured offsets and a ScrollView ref
-  - `components/StationSlot.tsx` — cook/bread station slot with timer & progress
+  - `components/StationSlot.tsx` — cook/bread station slot with timer & progress; supports `asView` to render non-interactive when wrapped by a Draggable
+  - `components/InstantButton.tsx` — Hot Hold/Window button; supports `asView` for the same reason
   - `components/TicketCard.tsx` — KDS-style paper ticket card
+  - `lib/dnd.tsx` — drag-and-drop primitives (`DndProvider`, `Draggable`, `DropZone`, `useDnd`) built on `react-native-gesture-handler`. Pan activates after a 180ms long-press composed `Exclusive` with a quick Tap (≤179ms) so quick taps still fire `onTap` and parent ScrollViews keep their swipe gestures. Ghost is rendered absolutely over a transparent overlay; zones re-measure at drag start.
   - `constants/colors.ts` — dark Soul theme (hot orange #ff6a1f)
 - **Game mechanics**:
-  - Pick ingredients from walk-in → drop on stations (breading/fryer/grill/sauté)
+  - Drag ingredients from walk-in → drop on stations (breading/fryer/grill/sauté). Stations have a station-level drop zone that auto-fills the first empty slot. Pass and Sauté also expose per-slot drop zones.
   - Timers count down with flip prompts; overcooking burns items
-  - Select ticket → plate cooked items to the Pass → press SEND
-  - Hot Hold (instant sides) + Window (drinks/desserts)
+  - Select ticket → drag cooked items / sides / drinks to a Pass slot to plate; press SEND when ticket is complete
+  - Tap-to-pick still works as a fallback (long-press to drag, quick-tap to pick)
+  - Walk-in cards & Hot Hold/Window buttons show a small orange demand badge in the top-right corner with the count of open ticket items the ingredient could fulfill (collapses to "9+" past 9)
   - 3 difficulties: Stage/Sat Lunch/Fri Rush; 4 speed multipliers
+- **DnD gotcha**: `DropZone`'s `unregisterZone` cleanup must NOT depend on the live `ctx` value — store it in a ref. The `DndProvider` re-creates its context value whenever drag/hover state changes, and depending on `ctx` would unregister every zone mid-drag (only the first hover would land; subsequent drops would silently miss).
 
 ## Key Commands
 

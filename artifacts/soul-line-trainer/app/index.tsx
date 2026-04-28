@@ -18,14 +18,24 @@ import {
   HOLD_ITEMS,
   COLD_ITEMS,
   COOK,
+  BREADED_TO_COOK,
   useGame,
   Difficulty,
+  Order,
+  Ingredient,
 } from "@/context/GameContext";
 import { CookStationSlot, BreadStationSlot } from "@/components/StationSlot";
 import { TicketCard } from "@/components/TicketCard";
 import { InstantButton } from "@/components/InstantButton";
 import { SectionHeader } from "@/components/SectionHeader";
 import { useColors } from "@/hooks/useColors";
+import { Draggable, DropZone } from "@/lib/dnd";
+
+type DragPayload =
+  | { kind: "walkIn"; id: string }
+  | { kind: "instant"; instantKind: "side" | "cold"; id: string }
+  | { kind: "breadSlot"; idx: number }
+  | { kind: "cookSlot"; station: "fryer" | "grill" | "saute"; idx: number };
 
 const SPEEDS_LIST = [1, 3, 6, 12];
 
@@ -118,90 +128,350 @@ export default function GameScreen() {
     stationOffsets[key] = e.nativeEvent.layout.y;
   };
 
+  // ── Demand counters for badges ─────────────────────────────────────────
+  const ingredientProducts = (ing: Ingredient): Set<string> => {
+    const products = new Set<string>();
+    Object.entries(ing.direct).forEach(([station, target]) => {
+      if (station === "bread") {
+        const cooked = BREADED_TO_COOK[target];
+        if (cooked) products.add(cooked);
+      } else {
+        products.add(target);
+      }
+    });
+    return products;
+  };
+
+  const ingredientDemand = (ingId: string): number => {
+    const ing = [...PROTEINS, ...FRY_SIDES].find(i => i.id === ingId);
+    if (!ing) return 0;
+    const products = ingredientProducts(ing);
+    let count = 0;
+    state.orders.forEach((o: Order) => {
+      o.items.forEach(it => {
+        if (it.fulfilled) return;
+        if (it.kind === "cook" && it.product && products.has(it.product)) count++;
+        else if (it.kind === "cook_choice" && it.products?.some(p => products.has(p))) count++;
+      });
+    });
+    return count;
+  };
+
+  const instantDemand = (id: string): number => {
+    let count = 0;
+    state.orders.forEach((o: Order) => {
+      o.items.forEach(it => {
+        if (it.fulfilled) return;
+        if ((it.kind === "side" || it.kind === "cold") && it.product === id) count++;
+      });
+    });
+    return count;
+  };
+
+  // ── Drop handlers (atomic pickup + place via chained functional setStates)
+  const dropWalkInToStation = (
+    ingId: string,
+    station: "bread" | "fryer" | "grill" | "saute",
+  ) => {
+    const ing = [...PROTEINS, ...FRY_SIDES].find(i => i.id === ingId);
+    if (!ing || !ing.direct[station]) return;
+    const arr =
+      station === "bread" ? state.bread :
+      station === "fryer" ? state.fryer :
+      station === "grill" ? state.grill : state.saute;
+    const idx = arr.findIndex(s => !s);
+    if (idx === -1) return;
+    pickIngredient(ingId);
+    placeIntoSlot(station, idx);
+  };
+
+  const dropBreadedToFryer = (srcIdx: number) => {
+    const idx = state.fryer.findIndex(s => !s);
+    if (idx === -1) return;
+    onBreadSlotPress(srcIdx);
+    placeIntoSlot("fryer", idx);
+  };
+
+  const dropCookedToPass = (
+    src: { station: "fryer" | "grill" | "saute"; idx: number },
+    passIdx: number,
+  ) => {
+    onCookSlotPress(src.station, src.idx);
+    onPassPress(passIdx);
+  };
+
+  const dropCookedToSaute = (
+    src: { station: "fryer" | "grill" | "saute"; idx: number },
+    sauteIdx: number,
+  ) => {
+    onCookSlotPress(src.station, src.idx);
+    placeIntoSlot("saute", sauteIdx);
+  };
+
+  const dropInstantToPass = (
+    instantKind: "side" | "cold",
+    id: string,
+    passIdx: number,
+  ) => {
+    pickInstant(instantKind, id);
+    onPassPress(passIdx);
+  };
+
+  // ── Drop zone accept predicates ────────────────────────────────────────
+  const stationAccepts = (station: "bread" | "fryer" | "grill" | "saute") => (p: DragPayload) => {
+    if (p.kind === "walkIn") {
+      const ing = [...PROTEINS, ...FRY_SIDES].find(i => i.id === p.id);
+      return !!ing?.direct[station];
+    }
+    if (p.kind === "breadSlot") return station === "fryer";
+    return false;
+  };
+
+  const passSlotAccepts = (idx: number) => (p: DragPayload) => {
+    if (state.pass[idx]) return false;
+    return p.kind === "cookSlot" || p.kind === "instant";
+  };
+
+  const sauteSlotAccepts = (idx: number) => (p: DragPayload) => {
+    if (state.saute[idx]) return false;
+    if (p.kind !== "cookSlot") return false;
+    const slot =
+      p.station === "fryer" ? state.fryer[p.idx] :
+      p.station === "grill" ? state.grill[p.idx] : state.saute[p.idx];
+    if (!slot?.done || slot.overcooked) return false;
+    return Object.values(COOK).some(
+      v => v.station === "saute" && v.requiresCooked?.includes(slot.cookKey),
+    );
+  };
+
+  // ── Helpers for ghosts and badges ──────────────────────────────────────
+  const simpleGhost = (label: string, kind: "ing" | "cooked" | "side" | "cold" | "breaded" = "ing") => (
+    <View style={[styles.ghostCard, {
+      borderColor: kind === "cooked" ? colors.done : kind === "side" ? colors.warn : kind === "cold" ? colors.raw : colors.hot,
+      backgroundColor: colors.bg3,
+    }]}>
+      <Text style={[styles.ghostText, { color: colors.foreground }]} numberOfLines={2}>{label}</Text>
+    </View>
+  );
+
+  const DemandBadge = ({ n }: { n: number }) => {
+    if (n <= 0) return null;
+    return (
+      <View style={[styles.demandBadge, { backgroundColor: colors.hot, borderColor: "#0e1012" }]}>
+        <Text style={styles.demandBadgeText}>{n > 9 ? "9+" : n}</Text>
+      </View>
+    );
+  };
+
+  // ── Wrappers: cook & bread slots (draggable when done) ─────────────────
+  const renderBreadSlot = (item: any, idx: number) => {
+    if (!item) {
+      return <BreadStationSlot key={idx} item={item} idx={idx} onPress={() => placeIntoSlot("bread", idx)} />;
+    }
+    return (
+      <Draggable
+        key={idx}
+        enabled={!!item.done}
+        payload={{ kind: "breadSlot", idx } as DragPayload}
+        ghost={simpleGhost(`Breaded ${item.id.replace(/^_/, "").replace(/_/g, " ")}`, "breaded")}
+        ghostSize={{ w: 110, h: 56 }}
+        onTap={() => onBreadSlotPress(idx)}
+        style={styles.slotWrap}
+      >
+        <BreadStationSlot asView item={item} idx={idx} />
+      </Draggable>
+    );
+  };
+
+  const renderCookSlot = (
+    station: "fryer" | "grill" | "saute",
+    item: any,
+    idx: number,
+  ) => {
+    if (!item) {
+      return (
+        <CookStationSlot
+          key={idx} item={item} kind={station} idx={idx}
+          shiftSec={state.shiftSec}
+          onPress={() => placeIntoSlot(station, idx)}
+        />
+      );
+    }
+    const draggable = item.done && !item.overcooked;
+    const label = COOK[item.cookKey]?.label || item.cookKey;
+    return (
+      <Draggable
+        key={idx}
+        enabled={draggable}
+        payload={{ kind: "cookSlot", station, idx } as DragPayload}
+        ghost={simpleGhost(label, "cooked")}
+        ghostSize={{ w: 110, h: 56 }}
+        onTap={() => onCookSlotPress(station, idx)}
+        style={styles.slotWrap}
+      >
+        <CookStationSlot asView item={item} kind={station} idx={idx} shiftSec={state.shiftSec} />
+      </Draggable>
+    );
+  };
+
   // ── Stations content (shared by portrait & landscape) ──────────────────
   const stationsContent = (
     <>
       <View style={styles.station} onLayout={onStationLayout("bread")}>
         <SectionHeader title="Breading" sub="30s" />
-        <View style={styles.row3}>
-          {state.bread.map((item, idx) => (
-            <BreadStationSlot
-              key={idx} item={item} idx={idx}
-              onPress={() => item ? onBreadSlotPress(idx) : placeIntoSlot("bread", idx)}
-            />
-          ))}
-        </View>
+        <DropZone<DragPayload>
+          zoneId="station-bread"
+          accepts={stationAccepts("bread")}
+          onDrop={(p) => {
+            if (p.kind === "walkIn") dropWalkInToStation(p.id, "bread");
+          }}
+        >
+          {({ isOver }) => (
+            <View style={[styles.row3, isOver && styles.rowOver]}>
+              {state.bread.map((item, idx) => renderBreadSlot(item, idx))}
+            </View>
+          )}
+        </DropZone>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("fryer")}>
         <SectionHeader title="Fryer 350°F" sub="4 baskets" />
-        <View style={styles.row4}>
-          {state.fryer.map((item, idx) => (
-            <CookStationSlot key={idx} item={item} kind="fryer" idx={idx}
-              shiftSec={state.shiftSec}
-              onPress={() => item ? onCookSlotPress("fryer", idx) : placeIntoSlot("fryer", idx)} />
-          ))}
-        </View>
+        <DropZone<DragPayload>
+          zoneId="station-fryer"
+          accepts={stationAccepts("fryer")}
+          onDrop={(p) => {
+            if (p.kind === "walkIn") dropWalkInToStation(p.id, "fryer");
+            else if (p.kind === "breadSlot") dropBreadedToFryer(p.idx);
+          }}
+        >
+          {({ isOver }) => (
+            <View style={[styles.row4, isOver && styles.rowOver]}>
+              {state.fryer.map((item, idx) => renderCookSlot("fryer", item, idx))}
+            </View>
+          )}
+        </DropZone>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("grill")}>
         <SectionHeader title="Grill 450°F" sub="Flip at midpoint" />
-        <View style={styles.row4}>
-          {state.grill.map((item, idx) => (
-            <CookStationSlot key={idx} item={item} kind="grill" idx={idx}
-              shiftSec={state.shiftSec}
-              onPress={() => item ? onCookSlotPress("grill", idx) : placeIntoSlot("grill", idx)} />
-          ))}
-        </View>
+        <DropZone<DragPayload>
+          zoneId="station-grill"
+          accepts={stationAccepts("grill")}
+          onDrop={(p) => {
+            if (p.kind === "walkIn") dropWalkInToStation(p.id, "grill");
+          }}
+        >
+          {({ isOver }) => (
+            <View style={[styles.row4, isOver && styles.rowOver]}>
+              {state.grill.map((item, idx) => renderCookSlot("grill", item, idx))}
+            </View>
+          )}
+        </DropZone>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("saute")}>
         <SectionHeader title="Sauté · Alfredo" sub="4 min after cook" />
         <View style={styles.row2}>
           {state.saute.map((item, idx) => (
-            <CookStationSlot key={idx} item={item} kind="saute" idx={idx}
-              shiftSec={state.shiftSec}
-              onPress={() => item ? onCookSlotPress("saute", idx) : placeIntoSlot("saute", idx)} />
+            <DropZone<DragPayload>
+              key={idx}
+              zoneId={`saute-${idx}`}
+              accepts={sauteSlotAccepts(idx)}
+              onDrop={(p) => {
+                if (p.kind === "cookSlot") dropCookedToSaute({ station: p.station, idx: p.idx }, idx);
+              }}
+              style={styles.slotWrap}
+            >
+              {({ isOver }) => (
+                <View style={isOver ? styles.slotOver : undefined}>
+                  {renderCookSlot("saute", item, idx)}
+                </View>
+              )}
+            </DropZone>
           ))}
         </View>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("hold")}>
-        <SectionHeader title="Hot Hold" sub="Instant" />
+        <SectionHeader title="Hot Hold" sub="Instant · Drag to Pass" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.instantScroll}>
-          {HOLD_ITEMS.map(it => (
-            <InstantButton
-              key={it.id} name={it.name} kind="side"
-              selected={state.picked?.kind === "side" && state.picked.id === it.id}
-              onPress={() => pickInstant("side", it.id)}
-            />
-          ))}
+          {HOLD_ITEMS.map(it => {
+            const demand = instantDemand(it.id);
+            return (
+              <Draggable
+                key={it.id}
+                payload={{ kind: "instant", instantKind: "side", id: it.id } as DragPayload}
+                ghost={simpleGhost(it.name, "side")}
+                ghostSize={{ w: 96, h: 44 }}
+                onTap={() => pickInstant("side", it.id)}
+              >
+                <View>
+                  <InstantButton
+                    asView
+                    name={it.name} kind="side"
+                    selected={state.picked?.kind === "side" && state.picked.id === it.id}
+                  />
+                  <DemandBadge n={demand} />
+                </View>
+              </Draggable>
+            );
+          })}
         </ScrollView>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("window")}>
-        <SectionHeader title="Window" sub="Drinks & Desserts" />
+        <SectionHeader title="Window" sub="Drinks & Desserts · Drag to Pass" />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.instantScroll}>
-          {COLD_ITEMS.map(it => (
-            <InstantButton
-              key={it.id} name={it.name} kind="cold"
-              selected={state.picked?.kind === "cold" && state.picked.id === it.id}
-              onPress={() => pickInstant("cold", it.id)}
-            />
-          ))}
+          {COLD_ITEMS.map(it => {
+            const demand = instantDemand(it.id);
+            return (
+              <Draggable
+                key={it.id}
+                payload={{ kind: "instant", instantKind: "cold", id: it.id } as DragPayload}
+                ghost={simpleGhost(it.name, "cold")}
+                ghostSize={{ w: 96, h: 44 }}
+                onTap={() => pickInstant("cold", it.id)}
+              >
+                <View>
+                  <InstantButton
+                    asView
+                    name={it.name} kind="cold"
+                    selected={state.picked?.kind === "cold" && state.picked.id === it.id}
+                  />
+                  <DemandBadge n={demand} />
+                </View>
+              </Draggable>
+            );
+          })}
         </ScrollView>
       </View>
 
       <View style={styles.station} onLayout={onStationLayout("pass")}>
-        <SectionHeader title="The Pass" sub="Select ticket → plate" />
+        <SectionHeader title="The Pass" sub="Select ticket · Drop cooked/sides here" />
         <View style={styles.row3}>
           {state.pass.slice(0, 3).map((item, idx) => (
-            <PassSlot key={idx} item={item} idx={idx} shiftSec={state.shiftSec} onPress={() => onPassPress(idx)} />
+            <PassDropSlot
+              key={idx} idx={idx} item={item} shiftSec={state.shiftSec}
+              accepts={passSlotAccepts(idx)}
+              onTap={() => onPassPress(idx)}
+              onDrop={(p) => {
+                if (p.kind === "cookSlot") dropCookedToPass({ station: p.station, idx: p.idx }, idx);
+                else if (p.kind === "instant") dropInstantToPass(p.instantKind, p.id, idx);
+              }}
+            />
           ))}
         </View>
         <View style={[styles.row3, { marginTop: 5 }]}>
           {state.pass.slice(3, 6).map((item, idx) => (
-            <PassSlot key={idx + 3} item={item} idx={idx + 3} shiftSec={state.shiftSec} onPress={() => onPassPress(idx + 3)} />
+            <PassDropSlot
+              key={idx + 3} idx={idx + 3} item={item} shiftSec={state.shiftSec}
+              accepts={passSlotAccepts(idx + 3)}
+              onTap={() => onPassPress(idx + 3)}
+              onDrop={(p) => {
+                if (p.kind === "cookSlot") dropCookedToPass({ station: p.station, idx: p.idx }, idx + 3);
+                else if (p.kind === "instant") dropInstantToPass(p.instantKind, p.id, idx + 3);
+              }}
+            />
           ))}
         </View>
       </View>
@@ -212,22 +482,30 @@ export default function GameScreen() {
   const renderIngCard = (ing: typeof PROTEINS[number], showFryer = false) => {
     const isSelected = state.picked?.kind === "ingredient" && state.picked.id === ing.id;
     const stations = showFryer ? "FRYER" : Object.keys(ing.direct).map(k => k.toUpperCase()).join("/");
+    const demand = ingredientDemand(ing.id);
     return (
-      <Pressable
+      <Draggable
         key={ing.id}
-        style={[
-          isLandscape ? styles.ingCard : styles.ingCardH,
-          {
-            backgroundColor: isSelected ? "rgba(255,106,31,0.08)" : colors.bg3,
-            borderColor: isSelected ? colors.hot : colors.line,
-            borderLeftColor: isSelected ? colors.hot : colors.inkFaint,
-          },
-        ]}
-        onPress={() => pickIngredient(ing.id)}
+        payload={{ kind: "walkIn", id: ing.id } as DragPayload}
+        ghost={simpleGhost(ing.name, "ing")}
+        ghostSize={{ w: isLandscape ? 110 : 96, h: 50 }}
+        onTap={() => pickIngredient(ing.id)}
       >
-        <Text style={[styles.ingName, { color: colors.foreground }]} numberOfLines={2}>{ing.name}</Text>
-        <Text style={[styles.ingMeta, { color: showFryer ? colors.hotLight : colors.inkFaint }]}>{stations}</Text>
-      </Pressable>
+        <View
+          style={[
+            isLandscape ? styles.ingCard : styles.ingCardH,
+            {
+              backgroundColor: isSelected ? "rgba(255,106,31,0.08)" : colors.bg3,
+              borderColor: isSelected ? colors.hot : colors.line,
+              borderLeftColor: isSelected ? colors.hot : colors.inkFaint,
+            },
+          ]}
+        >
+          <Text style={[styles.ingName, { color: colors.foreground }]} numberOfLines={2}>{ing.name}</Text>
+          <Text style={[styles.ingMeta, { color: showFryer ? colors.hotLight : colors.inkFaint }]}>{stations}</Text>
+          <DemandBadge n={demand} />
+        </View>
+      </Draggable>
     );
   };
 
@@ -300,7 +578,7 @@ export default function GameScreen() {
           onPress={clearPick}
         >
           <Text style={styles.pickedText}>HOLDING · {pickedLabel.name.toUpperCase()}</Text>
-          <Text style={styles.pickedDrop}>{pickedLabel.drop} · Tap to drop</Text>
+          <Text style={styles.pickedDrop}>{pickedLabel.drop} · Tap to drop · Or drag from walk-in</Text>
         </Pressable>
       )}
 
@@ -405,7 +683,7 @@ export default function GameScreen() {
 
           {/* Walk-in — horizontal scroll at bottom */}
           <View style={[styles.walkinBar, { backgroundColor: colors.bg2, borderTopColor: colors.line, paddingBottom: bottomPad + 4 }]}>
-            <Text style={[styles.walkinHead, { color: colors.inkFaint }]}>WALK-IN · TAP TO PICK</Text>
+            <Text style={[styles.walkinHead, { color: colors.inkFaint }]}>WALK-IN · DRAG TO STATION</Text>
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
@@ -445,12 +723,42 @@ export default function GameScreen() {
 
 // ── PASS SLOT ──────────────────────────────────────────────────────────────────
 
-function PassSlot({ item, idx, shiftSec, onPress }: { item: any; idx: number; shiftSec: number; onPress: () => void }) {
+function PassDropSlot({
+  item, idx, shiftSec, onTap, onDrop, accepts,
+}: {
+  item: any;
+  idx: number;
+  shiftSec: number;
+  onTap: () => void;
+  onDrop: (p: DragPayload) => void;
+  accepts: (p: DragPayload) => boolean;
+}) {
+  const colors = useColors();
+  return (
+    <DropZone<DragPayload>
+      zoneId={`pass-${idx}`}
+      accepts={accepts}
+      onDrop={onDrop}
+      style={styles.slotWrap}
+    >
+      {({ isOver }) => <PassSlot item={item} idx={idx} shiftSec={shiftSec} onPress={onTap} highlight={isOver} />}
+    </DropZone>
+  );
+}
+
+function PassSlot({ item, idx, shiftSec, onPress, highlight }: { item: any; idx: number; shiftSec: number; onPress: () => void; highlight?: boolean }) {
   const colors = useColors();
   if (!item) {
     return (
-      <Pressable style={[styles.passSlot, { backgroundColor: colors.bg2, borderColor: colors.line2 }]} onPress={onPress}>
-        <Text style={[styles.passEmpty, { color: colors.inkFaint }]}>Pass {idx + 1}</Text>
+      <Pressable
+        style={[
+          styles.passSlot,
+          { backgroundColor: colors.bg2, borderColor: highlight ? colors.hot : colors.line2 },
+          highlight && { borderWidth: 2, backgroundColor: "rgba(255,106,31,0.10)" },
+        ]}
+        onPress={onPress}
+      >
+        <Text style={[styles.passEmpty, { color: highlight ? colors.hot : colors.inkFaint }]}>Pass {idx + 1}</Text>
       </Pressable>
     );
   }
@@ -678,6 +986,61 @@ const styles = StyleSheet.create({
   passEmpty: { fontSize: 9, letterSpacing: 1.5, textTransform: "uppercase", textAlign: "center", marginTop: 12 },
   passItem: { fontSize: 9, fontWeight: "600", textTransform: "uppercase", letterSpacing: 0.3, lineHeight: 11 },
   passAge: { fontSize: 8, fontWeight: "700", letterSpacing: 1 },
+
+  // ── DnD ────────────────────────────────────────────────
+  slotWrap: { flex: 1 },
+  slotOver: {
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: "#ff6a1f",
+    backgroundColor: "rgba(255,106,31,0.08)",
+  },
+  rowOver: {
+    borderRadius: 4,
+    paddingVertical: 2,
+    backgroundColor: "rgba(255,106,31,0.08)",
+  },
+  ghostCard: {
+    flex: 1,
+    width: "100%",
+    height: "100%",
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 3,
+    borderWidth: 2,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.5,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  ghostText: {
+    fontSize: 11,
+    fontWeight: "700",
+    textAlign: "center",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  demandBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    zIndex: 5,
+  },
+  demandBadgeText: {
+    color: "#1a0d04",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+  },
 
   // ── LANDSCAPE TICKETS COLUMN ─────────────────────────
   tickets: { width: 200, borderLeftWidth: 1 },
