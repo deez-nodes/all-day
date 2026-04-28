@@ -3,7 +3,7 @@
     "name": "Soul · Line Trainer",
     "slug": "soul-line-trainer",
     "version": "1.0.0",
-    "orientation": "landscape",
+    "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "soul-line-trainer",
     "userInterfaceStyle": "dark",

@@ -9,6 +9,7 @@ interface Props {
   shiftSec: number;
   onSelect: () => void;
   onSend: () => void;
+  compact?: boolean;
 }
 
 function fmtTime(s: number): string {
@@ -16,7 +17,7 @@ function fmtTime(s: number): string {
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function TicketCard({ order, selected, shiftSec, onSelect, onSend }: Props) {
+export function TicketCard({ order, selected, shiftSec, onSelect, onSend, compact }: Props) {
   const colors = useColors();
   const age = shiftSec - order.bornAt;
   const remain = order.dueAt - shiftSec;
@@ -30,6 +31,7 @@ export function TicketCard({ order, selected, shiftSec, onSelect, onSend }: Prop
       <View style={[
         styles.card,
         { backgroundColor: "#fff", borderRadius: 6 },
+        compact && { width: 230, marginRight: 8, marginBottom: 0 },
         selected && { borderWidth: 2, borderColor: colors.hot },
       ]}>
         <View style={[styles.strip, { backgroundColor: stripBg }]}>
