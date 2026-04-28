@@ -35,9 +35,10 @@ export function InstantButton({ name, selected, kind, onPress }: Props) {
 const styles = StyleSheet.create({
   btn: {
     flex: 1,
-    minHeight: 56,
+    minHeight: 40,
+    minWidth: 64,
     paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingVertical: 6,
     borderRadius: 2,
     alignItems: "center",
     justifyContent: "center",
@@ -48,6 +49,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     textTransform: "uppercase",
     textAlign: "center",
-    lineHeight: 12,
+    lineHeight: 11,
   },
 });

@@ -24,7 +24,8 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Storage**: AsyncStorage (no backend needed)
 - **Key files**:
   - `context/GameContext.tsx` — all game state, logic, order generation, tick loop
-  - `app/index.tsx` — main screen with 3-column layout: walk-in | stations | tickets
+  - `app/index.tsx` — main screen, responsive: 3-column landscape (walk-in | stations | tickets) and stacked portrait (header / h-scroll tickets / vertical stations / h-scroll walk-in) when window width < 760
+  - Portrait mode auto-scrolls the stations area to the relevant station when an ingredient is picked, using onLayout-captured offsets and a ScrollView ref
   - `components/StationSlot.tsx` — cook/bread station slot with timer & progress
   - `components/TicketCard.tsx` — KDS-style paper ticket card
   - `constants/colors.ts` — dark Soul theme (hot orange #ff6a1f)
