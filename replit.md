@@ -18,8 +18,23 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Artifacts
 
-### Soul · Line Trainer (`artifacts/soul-line-trainer`)
+There are TWO versions of the same game. The game LOGIC is duplicated (not shared via a lib): the web `GameContext.tsx` is a 1:1 port of the mobile one (only AsyncStorage→localStorage differs). Any rules/data change must be applied to BOTH copies to keep them in sync.
+
+### Soul · Line Trainer — Web (`artifacts/soul-line-web`) — PRIMARY
+- **Type**: React + Vite web app (desktop / wide screen)
+- **Route**: `/` (previewPath and BASE_PATH `/`)
+- **Purpose**: Wide-desktop rebuild of the kitchen line trainer game
+- **Storage**: `localStorage` (no backend needed)
+- **Key files**:
+  - `src/game/GameContext.tsx` — full game engine (ported 1:1 from the mobile app), exposes `GameProvider` + `useGame()`. Owns all rules/data/timers/scoring.
+  - `src/pages/Game.tsx` — entire game UI: start screen, HUD, 3-column floor (Walk-In | Stations | Pass+Tickets).
+  - `src/components/game/DnD.tsx` — dependency-free HTML5 drag-and-drop (`Draggable` serializes a payload to `dataTransfer`; `Droppable` validates via `accepts` and fires `onDropFn`). No `@dnd-kit`/`react-native-gesture-handler`.
+  - `src/components/game/StationSlot.tsx`, `DemandBadge.tsx`, `src/lib/demand.ts`.
+- **Interaction model**: BOTH drag-and-drop AND tap/click-to-pick work. The picked item is set on drag start (`onDragStartFn`) OR on click; drop/place handlers must ONLY place — they must NOT re-call the pick functions, which are toggles and would clear the picked item (caused a drag-placement bug). Pass items store side/cold under `id` and cooked under `product`.
+
+### Soul · Line Trainer — Mobile (`artifacts/soul-line-trainer`)
 - **Type**: Expo mobile app (React Native / Expo Router)
+- **Route**: `/mobile` (previewPath, paths, BASE_PATH all `/mobile`)
 - **Purpose**: Kitchen line trainer game for a Soul food restaurant
 - **Storage**: AsyncStorage (no backend needed)
 - **Key files**:
