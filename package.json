@@ -5,9 +5,11 @@
   "description": "ALL DAY — a kitchen-line trainer game. Real menu, real cook times, rendered as a live kitchen scene.",
   "scripts": {
     "dev": "npx -y serve src",
-    "test": "node tests/game.test.js"
+    "test": "node tests/game.test.js",
+    "shot": "node tools/shot.js"
   },
   "devDependencies": {
-    "jsdom": "^24.0.0"
+    "jsdom": "^24.0.0",
+    "puppeteer-core": "^23.0.0"
   }
 }

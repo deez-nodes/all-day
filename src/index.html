@@ -392,29 +392,57 @@
 
 <script>
 "use strict";
+/* ══════════ CONSTANTS ══════════ */
+const ORDER_TYPE_DINE_IN="DINE IN",ORDER_TYPE_TO_GO="TO GO";
+const DIFF_EASY="easy",DIFF_MEDIUM="medium",DIFF_HARD="hard";
+const TONE_GOOD="good",TONE_WARN="warn",TONE_BAD="bad";
+const KIND_ING="ing",KIND_BREADED="breaded",KIND_COOKED="cooked",KIND_SIDE="side",KIND_COLD="cold",
+      KIND_COOK="cook",KIND_COOK_CHOICE="cook_choice",KIND_BREADING="bread";
+const STATE_COOKING="cooking",STATE_UP="up",STATE_BURNT="burnt";
+const HIT_SLOT="slot",HIT_WINDOW="window",HIT_TRASH="trash",HIT_LOWBOY="lowboy";
+const AGE_OK="ok",AGE_WARN="warn",AGE_LATE="late";
+const DATASET_ORDER_ID="oid";
+const orderCardSelector=ordId=>'[data-'+DATASET_ORDER_ID+'="'+ordId+'"]';
+const ST_BREAD="bread",ST_FRYER="fryer",ST_GRILL="grill",ST_SAUTE="saute",ST_WINDOW="window";
+const KEY_BEST="allday_best",KEY_SOUND="allday_sound",KEY_DIFF="allday_diff",KEY_SPEED="allday_speed",
+      KEY_TIPS="allday_tips",KEY_XP="allday_xp",KEY_DAY="allday_day",KEY_GEAR="allday_gear",
+      KEY_PERKS="allday_perks",KEY_HIST="allday_hist";
+const DOM={
+  bankInstant:"bank-instant",bankProteins:"bank-proteins",bestLine:"best-line",btnAgain:"btn-again",btnEnd:"btn-end",
+  btnMenu2:"btn-menu2",btnPause:"btn-pause",btnShop:"btn-shop",btnShopBack:"btn-shop-back",btnShop2:"btn-shop2",
+  btnSound:"btn-sound",btnStart:"btn-start",btnStudy:"btn-study",btnStudyBack:"btn-study-back",careerTitle:"career-title",
+  careerXp:"career-xp",clock:"clock",dayLine:"day-line",diffCards:"diff-cards",drawer:"drawer",
+  drawerTab:"drawer-tab",earnLine:"earn-line",ghostTicket:"ghost-t",grade:"grade",gradeWord:"grade-word",
+  handChip:"hand-chip",handHint:"hand-hint",histRows:"hist-rows",menuRows:"menu-rows",ovMenu:"ov-menu",
+  ovReport:"ov-report",ovShop:"ov-shop",ovStart:"ov-start",pauseVeil:"pause-veil",rail:"rail",
+  rotate:"rotate",scene:"scene",score:"score",shopCards:"shop-cards",shopTips:"shop-tips",
+  speedRow:"speed-row",statGrid:"stat-grid",streak:"streak",tips:"tips",toasts:"toasts",
+  xpFill:"xp-fill",
+};
+
 /* ══════════ DATA ══════════ */
 const COOK = {
-  wings_bone:{sec:600,st:"fryer",flip:null,label:"Bone-In Wings",ticket:"Wings BONE-IN",cat:"chunks"},
-  turkey_wings:{sec:720,st:"fryer",flip:null,label:"Turkey Wings",ticket:"Turkey Wings FRIED",cat:"chunks"},
-  fritters:{sec:240,st:"fryer",flip:null,label:"Conch Fritters",ticket:"Conch Fritters",cat:"chunks"},
-  fries:{sec:240,st:"fryer",flip:null,label:"Fries",ticket:"Fries",cat:"fries"},
-  wings_bls:{sec:300,st:"fryer",flip:null,label:"Boneless Wings",ticket:"Wings BONELESS",cat:"chunks"},
-  tenders:{sec:300,st:"fryer",flip:null,label:"Tenders",ticket:"Tenders 4ct",cat:"chunks"},
-  crispy_chx:{sec:360,st:"fryer",flip:null,label:"Crispy Chicken",ticket:"Chicken CRISPY",cat:"fillet"},
-  fried_snapper:{sec:360,st:"fryer",flip:null,label:"Fried Snapper",ticket:"Snapper FRIED",cat:"fillet"},
-  fried_shrimp:{sec:180,st:"fryer",flip:null,label:"Fried Shrimp",ticket:"Shrimp FRIED",cat:"shrimp"},
-  cracked_conch:{sec:240,st:"fryer",flip:null,label:"Cracked Conch",ticket:"Cracked Conch",cat:"chunks"},
-  gator_bites:{sec:240,st:"fryer",flip:null,label:"Gator Bites",ticket:"Gator CRISPY",cat:"chunks"},
-  fried_lamb:{sec:300,st:"fryer",flip:null,label:"Fried Lamb",ticket:"Lamb FRIED",cat:"slab"},
-  grilled_chx:{sec:720,st:"grill",flip:360,label:"Grilled Chicken",ticket:"Chicken GRILLED",cat:"fillet"},
-  grilled_snapper:{sec:540,st:"grill",flip:270,label:"Grilled Snapper",ticket:"Snapper GRILLED",cat:"fillet"},
-  grilled_shrimp:{sec:240,st:"grill",flip:120,label:"Grilled Shrimp",ticket:"Shrimp GRILLED",cat:"shrimp"},
-  grilled_salmon:{sec:480,st:"grill",flip:240,label:"Grilled Salmon",ticket:"Salmon GRILLED",cat:"fillet"},
-  steak_well:{sec:720,st:"grill",flip:360,label:"Strip Steak",ticket:"Strip Steak WELL",cat:"slab"},
-  lamb_well:{sec:480,st:"grill",flip:240,label:"Grilled Lamb",ticket:"Lamb GRILLED",cat:"slab"},
-  alfredo_chx:{sec:240,st:"saute",flip:null,label:"Chicken Alfredo",ticket:"Chicken Alfredo",cat:"pasta",needs:["grilled_chx","crispy_chx"]},
-  alfredo_shrimp:{sec:240,st:"saute",flip:null,label:"Shrimp Alfredo",ticket:"Shrimp Alfredo",cat:"pasta",needs:["grilled_shrimp","fried_shrimp"]},
-  alfredo_salmon:{sec:240,st:"saute",flip:null,label:"Salmon Alfredo",ticket:"Salmon Alfredo",cat:"pasta",needs:["grilled_salmon"]},
+  wings_bone:{sec:600,station:ST_FRYER,flip:null,label:"Bone-In Wings",ticket:"Wings BONE-IN",cat:"chunks"},
+  turkey_wings:{sec:720,station:ST_FRYER,flip:null,label:"Turkey Wings",ticket:"Turkey Wings FRIED",cat:"chunks"},
+  fritters:{sec:240,station:ST_FRYER,flip:null,label:"Conch Fritters",ticket:"Conch Fritters",cat:"chunks"},
+  fries:{sec:240,station:ST_FRYER,flip:null,label:"Fries",ticket:"Fries",cat:"fries"},
+  wings_bls:{sec:300,station:ST_FRYER,flip:null,label:"Boneless Wings",ticket:"Wings BONELESS",cat:"chunks"},
+  tenders:{sec:300,station:ST_FRYER,flip:null,label:"Tenders",ticket:"Tenders 4ct",cat:"chunks"},
+  crispy_chx:{sec:360,station:ST_FRYER,flip:null,label:"Crispy Chicken",ticket:"Chicken CRISPY",cat:"fillet"},
+  fried_snapper:{sec:360,station:ST_FRYER,flip:null,label:"Fried Snapper",ticket:"Snapper FRIED",cat:"fillet"},
+  fried_shrimp:{sec:180,station:ST_FRYER,flip:null,label:"Fried Shrimp",ticket:"Shrimp FRIED",cat:"shrimp"},
+  cracked_conch:{sec:240,station:ST_FRYER,flip:null,label:"Cracked Conch",ticket:"Cracked Conch",cat:"chunks"},
+  gator_bites:{sec:240,station:ST_FRYER,flip:null,label:"Gator Bites",ticket:"Gator CRISPY",cat:"chunks"},
+  fried_lamb:{sec:300,station:ST_FRYER,flip:null,label:"Fried Lamb",ticket:"Lamb FRIED",cat:"slab"},
+  grilled_chx:{sec:720,station:ST_GRILL,flip:360,label:"Grilled Chicken",ticket:"Chicken GRILLED",cat:"fillet"},
+  grilled_snapper:{sec:540,station:ST_GRILL,flip:270,label:"Grilled Snapper",ticket:"Snapper GRILLED",cat:"fillet"},
+  grilled_shrimp:{sec:240,station:ST_GRILL,flip:120,label:"Grilled Shrimp",ticket:"Shrimp GRILLED",cat:"shrimp"},
+  grilled_salmon:{sec:480,station:ST_GRILL,flip:240,label:"Grilled Salmon",ticket:"Salmon GRILLED",cat:"fillet"},
+  steak_well:{sec:720,station:ST_GRILL,flip:360,label:"Strip Steak",ticket:"Strip Steak WELL",cat:"slab"},
+  lamb_well:{sec:480,station:ST_GRILL,flip:240,label:"Grilled Lamb",ticket:"Lamb GRILLED",cat:"slab"},
+  alfredo_chx:{sec:240,station:ST_SAUTE,flip:null,label:"Chicken Alfredo",ticket:"Chicken Alfredo",cat:"pasta",needs:["grilled_chx","crispy_chx"]},
+  alfredo_shrimp:{sec:240,station:ST_SAUTE,flip:null,label:"Shrimp Alfredo",ticket:"Shrimp Alfredo",cat:"pasta",needs:["grilled_shrimp","fried_shrimp"]},
+  alfredo_salmon:{sec:240,station:ST_SAUTE,flip:null,label:"Salmon Alfredo",ticket:"Salmon Alfredo",cat:"pasta",needs:["grilled_salmon"]},
 };
 const BREAD_MAP = {_bls:"wings_bls",_tenders:"tenders",_crispy:"crispy_chx",_snap:"fried_snapper",_shr:"fried_shrimp",_conch:"cracked_conch",_gator:"gator_bites",_lamb:"fried_lamb"};
 
@@ -476,70 +504,71 @@ const SIMPLE_IDS=["WINGS_DIN","WINGS_FRIES","BLS_DIN","TENDER_DIN","WINGS_APP","
 const COMBO_POOL=["wings_bone","tenders","grilled_chx","crispy_chx","fried_snapper","grilled_snapper","fried_shrimp","grilled_shrimp","cracked_conch","gator_bites"];
 
 const DIFF = {
-  easy:  {name:"STAGE",desc:"Trailing shift. 1–3 tickets, simple menu, slow pace.",init:1,max:3,gapMin:30,gapMax:50,simple:true,combo:0,shiftMin:20},
-  medium:{name:"SATURDAY LUNCH",desc:"Steady turns. Up to 5 tickets, full menu.",init:2,max:5,gapMin:18,gapMax:32,simple:false,combo:.15,shiftMin:25},
-  hard:  {name:"FRIDAY RUSH",desc:"Buried. Up to 7 tickets, combos, no mercy.",init:3,max:7,gapMin:8,gapMax:18,simple:false,combo:.35,shiftMin:30},
+  [DIFF_EASY]:  {name:"STAGE",desc:"Trailing shift. 1–3 tickets, simple menu, slow pace.",init:1,max:3,gapMin:30,gapMax:50,simple:true,combo:0,shiftMin:20},
+  [DIFF_MEDIUM]:{name:"SATURDAY LUNCH",desc:"Steady turns. Up to 5 tickets, full menu.",init:2,max:5,gapMin:18,gapMax:32,simple:false,combo:.15,shiftMin:25},
+  [DIFF_HARD]:  {name:"FRIDAY RUSH",desc:"Buried. Up to 7 tickets, combos, no mercy.",init:3,max:7,gapMin:8,gapMax:18,simple:false,combo:.35,shiftMin:30},
 };
 const NAMES=["Bella","Tasha M","Marcus J","Latoya","Demetrius","Aisha K","Jerome W","Keke","Amari R","Tyrese","Janelle B","DeAndre","Imani","Reggie","Kenya M","Mike T","Sarah L","Brittany","Darius","Malcolm","Nia","Jamal","Ericka","Trey","Latrice"];
-const TYPES=["DINE IN","TO GO","DINE IN","TO GO","TO GO"];
+const TYPES=[ORDER_TYPE_DINE_IN,ORDER_TYPE_TO_GO,ORDER_TYPE_DINE_IN,ORDER_TYPE_TO_GO,ORDER_TYPE_TO_GO];
 const HOLD_WARN=120,HOLD_DEAD=180,WALK_AFTER=120,FLIP_GRACE=60;
-const MAXG={fryer:4,grill:4,bread:2,saute:2,window:4};
+const MAX_STATION_SLOTS={fryer:4,grill:4,bread:2,saute:2,window:4};
 
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 const fmt=s=>{s=Math.max(0,Math.round(s));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
 const el=id=>document.getElementById(id);
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const routeLabels=(direct,sep)=>Object.keys(direct).map(k=>k===ST_BREAD?"BREADING":k.toUpperCase()).join(sep);
 
 /* ══════════ META (persisted career/economy) ══════════ */
-function loadJSON(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
-let best=loadJSON("allday_best",0);
-let soundOn=localStorage.getItem("allday_sound")!=="0";
-let chosenDiff=localStorage.getItem("allday_diff")||"easy";
-let chosenSpeed=loadJSON("allday_speed",3);
-let tips=loadJSON("allday_tips",0);
-let xp=loadJSON("allday_xp",0);
-let day=loadJSON("allday_day",1);
-let gear=Object.assign({fryer:2,grill:2,bread:1,saute:1,window:2},loadJSON("allday_gear",{}));
-let perks=Object.assign({tongs:false,prep:false},loadJSON("allday_perks",{}));
+function loadJSON(key,fallback){try{const value=JSON.parse(localStorage.getItem(key));return value==null?fallback:value}catch(err){return fallback}}
+let best=loadJSON(KEY_BEST,0);
+let soundOn=localStorage.getItem(KEY_SOUND)!=="0";
+let chosenDiff=localStorage.getItem(KEY_DIFF)||DIFF_EASY;
+let chosenSpeed=loadJSON(KEY_SPEED,3);
+let tips=loadJSON(KEY_TIPS,0);
+let xp=loadJSON(KEY_XP,0);
+let day=loadJSON(KEY_DAY,1);
+let gear=Object.assign({fryer:2,grill:2,bread:1,saute:1,window:2},loadJSON(KEY_GEAR,{}));
+let perks=Object.assign({tongs:false,prep:false},loadJSON(KEY_PERKS,{}));
 function saveMeta(){
-  localStorage.setItem("allday_tips",JSON.stringify(tips));
-  localStorage.setItem("allday_xp",JSON.stringify(xp));
-  localStorage.setItem("allday_day",JSON.stringify(day));
-  localStorage.setItem("allday_gear",JSON.stringify(gear));
-  localStorage.setItem("allday_perks",JSON.stringify(perks));
+  localStorage.setItem(KEY_TIPS,JSON.stringify(tips));
+  localStorage.setItem(KEY_XP,JSON.stringify(xp));
+  localStorage.setItem(KEY_DAY,JSON.stringify(day));
+  localStorage.setItem(KEY_GEAR,JSON.stringify(gear));
+  localStorage.setItem(KEY_PERKS,JSON.stringify(perks));
 }
 const LEVELS=[[0,"DISH PIT"],[300,"PREP"],[800,"FRY COOK"],[1600,"GRILL COOK"],[2800,"LINE COOK"],[4500,"SOUS CHEF"],[7000,"CHEF DE CUISINE"]];
-function careerAt(x){let i=0;for(let j=0;j<LEVELS.length;j++)if(x>=LEVELS[j][0])i=j;return i}
+function careerAt(xpTotal){let level=0;for(let j=0;j<LEVELS.length;j++)if(xpTotal>=LEVELS[j][0])level=j;return level}
 const graceSec=()=>60+(perks.tongs?30:0);
 const breadSec=()=>perks.prep?15:30;
 
 const SHOP=[
-  {id:"fryer3",name:"Third fryer basket",desc:"One more drop going at once.",cost:120,kind:"gear",key:"fryer",to:3},
-  {id:"fryer4",name:"Fourth fryer basket",desc:"Full fry bank.",cost:260,kind:"gear",key:"fryer",to:4},
-  {id:"grill3",name:"Third grill zone",desc:"More grate to work with.",cost:120,kind:"gear",key:"grill",to:3},
-  {id:"grill4",name:"Fourth grill zone",desc:"The whole grill is yours.",cost:260,kind:"gear",key:"grill",to:4},
-  {id:"bread2",name:"Second breading tray",desc:"Bread two items at once.",cost:150,kind:"gear",key:"bread",to:2},
-  {id:"saute2",name:"Second sauté burner",desc:"Two pastas going at once.",cost:180,kind:"gear",key:"saute",to:2},
-  {id:"window3",name:"Third window slot",desc:"More room under the lamps.",cost:100,kind:"gear",key:"window",to:3},
-  {id:"window4",name:"Fourth window slot",desc:"A deep hot hold.",cost:200,kind:"gear",key:"window",to:4},
+  {id:"fryer3",name:"Third fryer basket",desc:"One more drop going at once.",cost:120,kind:"gear",key:ST_FRYER,to:3},
+  {id:"fryer4",name:"Fourth fryer basket",desc:"Full fry bank.",cost:260,kind:"gear",key:ST_FRYER,to:4},
+  {id:"grill3",name:"Third grill zone",desc:"More grate to work with.",cost:120,kind:"gear",key:ST_GRILL,to:3},
+  {id:"grill4",name:"Fourth grill zone",desc:"The whole grill is yours.",cost:260,kind:"gear",key:ST_GRILL,to:4},
+  {id:"bread2",name:"Second breading tray",desc:"Bread two items at once.",cost:150,kind:"gear",key:ST_BREAD,to:2},
+  {id:"saute2",name:"Second sauté burner",desc:"Two pastas going at once.",cost:180,kind:"gear",key:ST_SAUTE,to:2},
+  {id:"window3",name:"Third window slot",desc:"More room under the lamps.",cost:100,kind:"gear",key:ST_WINDOW,to:3},
+  {id:"window4",name:"Fourth window slot",desc:"A deep hot hold.",cost:200,kind:"gear",key:ST_WINDOW,to:4},
   {id:"tongs",name:"Sharper instincts",desc:"Food survives 30s longer before it dies.",cost:220,kind:"perk",key:"tongs"},
   {id:"prep",name:"Prep cook",desc:"Breading takes 15s instead of 30s.",cost:300,kind:"perk",key:"prep"},
 ];
 
 /* ══════════ AUDIO + HAPTICS + TOASTS ══════════ */
-let AC=null;
-function tone(f,dur,type,vol,when){
+let audioContext=null;
+function tone(freq,dur,type,vol,when){
   if(!soundOn)return;
   try{
-    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
-    if(AC.state==="suspended")AC.resume();
-    const t=AC.currentTime+(when||0);
-    const o=AC.createOscillator(),g=AC.createGain();
-    o.type=type||"sine";o.frequency.value=f;
-    g.gain.setValueAtTime(0,t);
-    g.gain.linearRampToValueAtTime(vol||.08,t+.01);
-    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
-    o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+.05);
+    audioContext=audioContext||new (window.AudioContext||window.webkitAudioContext)();
+    if(audioContext.state==="suspended")audioContext.resume();
+    const startAt=audioContext.currentTime+(when||0);
+    const osc=audioContext.createOscillator(),gainNode=audioContext.createGain();
+    osc.type=type||"sine";osc.frequency.value=freq;
+    gainNode.gain.setValueAtTime(0,startAt);
+    gainNode.gain.linearRampToValueAtTime(vol||.08,startAt+.01);
+    gainNode.gain.exponentialRampToValueAtTime(.0001,startAt+dur);
+    osc.connect(gainNode).connect(audioContext.destination);osc.start(startAt);osc.stop(startAt+dur+.05);
   }catch(e){}
 }
 const sfx={
@@ -557,15 +586,15 @@ const sfx={
 };
 const buzz=ms=>{try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}};
 function toast(msg,kind){
-  const box=el("toasts");
+  const box=el(DOM.toasts);
   while(box.children.length>=3)box.removeChild(box.firstChild);
-  const d=document.createElement("div");
-  d.className="toast "+(kind||"");d.textContent=msg;box.appendChild(d);
-  setTimeout(()=>{d.classList.add("out");setTimeout(()=>d.remove(),320)},2100);
+  const node=document.createElement("div");
+  node.className="toast "+(kind||"");node.textContent=msg;box.appendChild(node);
+  setTimeout(()=>{node.classList.add("out");setTimeout(()=>node.remove(),320)},2100);
 }
 
 /* ══════════ SIM STATE ══════════ */
-let S=null;
+let sim=null;
 function freshState(diff,speed){
   return {
     running:false,paused:false,diff,speed,shiftSec:0,
@@ -587,161 +616,161 @@ function makeItem(kind,product,products){
 }
 function addSidesTo(items,count){
   const chosen=[];
-  while(chosen.length<count){const s=pick(SIDE_IDS);if(!chosen.includes(s))chosen.push(s)}
-  chosen.forEach(s=>items.push(makeItem("side",s)));
+  while(chosen.length<count){const sideId=pick(SIDE_IDS);if(!chosen.includes(sideId))chosen.push(sideId)}
+  chosen.forEach(sideId=>items.push(makeItem(KIND_SIDE,sideId)));
 }
 function spawnOrder(){
-  const d=DIFF[S.diff];
-  if(S.orders.length>=d.max)return;
+  const diff=DIFF[sim.diff];
+  if(sim.orders.length>=diff.max)return;
   let ord;
-  if(!d.simple&&Math.random()<d.combo){
-    const a=pick(COMBO_POOL),b=pick(COMBO_POOL.filter(x=>x!==a));
-    ord={id:"o"+S.nextNum,num:S.nextNum,label:"Combo · Pick 2",who:pick(NAMES),type:pick(TYPES),born:S.shiftSec,target:780,items:[]};
-    ord.items.push(makeItem("cook",a),makeItem("cook",b));
+  if(!diff.simple&&Math.random()<diff.combo){
+    const pickA=pick(COMBO_POOL),pickB=pick(COMBO_POOL.filter(x=>x!==pickA));
+    ord={id:"o"+sim.nextNum,num:sim.nextNum,label:"Combo · Pick 2",who:pick(NAMES),type:pick(TYPES),born:sim.shiftSec,target:780,items:[]};
+    ord.items.push(makeItem(KIND_COOK,pickA),makeItem(KIND_COOK,pickB));
     addSidesTo(ord.items,2);addSidesTo(ord.items,2);
-    ord.items.push(makeItem("cold",pick(COLD_DRINKS)));
+    ord.items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
   }else{
-    const pool=d.simple?MENU.filter(m=>SIMPLE_IDS.includes(m.id)):MENU;
-    const t=pick(pool);
-    ord={id:"o"+S.nextNum,num:S.nextNum,label:t.name,who:pick(NAMES),type:pick(TYPES),born:S.shiftSec,target:t.target,items:[]};
-    t.cook.forEach(ch=>ord.items.push(ch.length>1?makeItem("cook_choice",null,ch):makeItem("cook",ch[0])));
-    if(t.sides)addSidesTo(ord.items,t.sides);
-    if(t.drink&&(t.drink===1||Math.random()<t.drink))ord.items.push(makeItem("cold",pick(COLD_DRINKS)));
-    if(t.dessert&&Math.random()<t.dessert)ord.items.push(makeItem("cold",pick(COLD_DES)));
+    const pool=diff.simple?MENU.filter(m=>SIMPLE_IDS.includes(m.id)):MENU;
+    const menuItem=pick(pool);
+    ord={id:"o"+sim.nextNum,num:sim.nextNum,label:menuItem.name,who:pick(NAMES),type:pick(TYPES),born:sim.shiftSec,target:menuItem.target,items:[]};
+    menuItem.cook.forEach(ch=>ord.items.push(ch.length>1?makeItem(KIND_COOK_CHOICE,null,ch):makeItem(KIND_COOK,ch[0])));
+    if(menuItem.sides)addSidesTo(ord.items,menuItem.sides);
+    if(menuItem.drink&&(menuItem.drink===1||Math.random()<menuItem.drink))ord.items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
+    if(menuItem.dessert&&Math.random()<menuItem.dessert)ord.items.push(makeItem(KIND_COLD,pick(COLD_DES)));
   }
-  S.nextNum++;S.orders.push(ord);
+  sim.nextNum++;sim.orders.push(ord);
   ordersDirty=true;sfx.newTicket();
 }
-const matches=(it,key)=>it.kind==="cook_choice"?it.products.includes(key):it.product===key;
+const matches=(item,key)=>item.kind===KIND_COOK_CHOICE?item.products.includes(key):item.product===key;
 const ticketNeeds=(ord,key)=>ord.items.find(it=>!it.done&&matches(it,key));
 
 /* ══════════ HAND ══════════ */
 function handKey(){
-  if(!S.hand)return null;
-  if(S.hand.kind==="cooked")return S.hand.product;
-  if(S.hand.kind==="side"||S.hand.kind==="cold")return S.hand.id;
+  if(!sim.hand)return null;
+  if(sim.hand.kind===KIND_COOKED)return sim.hand.product;
+  if(sim.hand.kind===KIND_SIDE||sim.hand.kind===KIND_COLD)return sim.hand.id;
   return null;
 }
 function handLabel(){
-  const h=S.hand;if(!h)return"";
-  if(h.kind==="ing")return PROTEINS.find(p=>p.id===h.id).name;
-  if(h.kind==="breaded")return COOK[BREAD_MAP[h.id]].label+" · breaded";
-  if(h.kind==="cooked")return COOK[h.product].label;
-  if(h.kind==="side")return SIDES.find(s=>s.id===h.id).name;
-  return COLD.find(c=>c.id===h.id).name;
+  const hand=sim.hand;if(!hand)return"";
+  if(hand.kind===KIND_ING)return PROTEINS.find(p=>p.id===hand.id).name;
+  if(hand.kind===KIND_BREADED)return COOK[BREAD_MAP[hand.id]].label+" · breaded";
+  if(hand.kind===KIND_COOKED)return COOK[hand.product].label;
+  if(hand.kind===KIND_SIDE)return SIDES.find(s=>s.id===hand.id).name;
+  return COLD.find(c=>c.id===hand.id).name;
 }
 function handHint(){
-  const h=S.hand;
-  if(!h)return"Open the LOWBOY to grab food.";
-  if(h.kind==="ing"){
-    const ing=PROTEINS.find(p=>p.id===h.id);
-    return"Drop on "+Object.keys(ing.direct).map(k=>k==="bread"?"BREADING":k.toUpperCase()).join(" or ")+" — it's glowing.";
+  const hand=sim.hand;
+  if(!hand)return"Open the LOWBOY to grab food.";
+  if(hand.kind===KIND_ING){
+    const ing=PROTEINS.find(p=>p.id===hand.id);
+    return"Drop on "+routeLabels(ing.direct," or ")+" — it's glowing.";
   }
-  if(h.kind==="breaded")return"Into the fryer.";
-  if(h.kind==="cooked"){
-    const alf=Object.values(COOK).some(c=>c.needs&&c.needs.includes(h.product));
+  if(hand.kind===KIND_BREADED)return"Into the fryer.";
+  if(hand.kind===KIND_COOKED){
+    const alf=Object.values(COOK).some(c=>c.needs&&c.needs.includes(hand.product));
     return"Tap its ticket"+(alf?", a sauté pan,":"")+" or hold it under the lamps.";
   }
   return"Tap the ticket it belongs to.";
 }
-function setHand(h){S.hand=h;renderHand();if(h)sfx.pick()}
+function setHand(hand){sim.hand=hand;renderHand();if(hand)sfx.pick()}
 
 /* ══════════ ACTIONS ══════════ */
 function tapBank(kind,id){
-  if(!S.running||S.paused)return;
-  if(S.hand&&(S.hand.kind==="ing"||S.hand.kind==="side"||S.hand.kind==="cold")&&S.hand.id===id){setHand(null);return}
-  if(S.hand&&S.hand.kind==="cooked"){toast("Hands full — plate or stash it first","warn");sfx.deny();return}
-  if(S.hand&&S.hand.kind==="breaded"){toast("Hands full — drop it in the fryer","warn");sfx.deny();return}
-  setHand(kind==="ing"?{kind:"ing",id}:{kind,id});
+  if(!sim.running||sim.paused)return;
+  if(sim.hand&&(sim.hand.kind===KIND_ING||sim.hand.kind===KIND_SIDE||sim.hand.kind===KIND_COLD)&&sim.hand.id===id){setHand(null);return}
+  if(sim.hand&&sim.hand.kind===KIND_COOKED){toast("Hands full — plate or stash it first",TONE_WARN);sfx.deny();return}
+  if(sim.hand&&sim.hand.kind===KIND_BREADED){toast("Hands full — drop it in the fryer",TONE_WARN);sfx.deny();return}
+  setHand(kind===KIND_ING?{kind:KIND_ING,id}:{kind,id});
   closeDrawer();
 }
-function tapSlot(st,idx){
-  if(!S.running||S.paused)return;
-  const arr=S[st],item=arr[idx];
+function tapSlot(station,idx){
+  if(!sim.running||sim.paused)return;
+  const slots=sim[station],item=slots[idx];
   if(!item){
-    const h=S.hand;
-    if(!h)return;
-    if(h.kind==="ing"){
-      const ing=PROTEINS.find(p=>p.id===h.id);
-      const key=ing.direct[st==="bread"?"bread":st];
-      if(!key){toast(ing.name+" goes on "+Object.keys(ing.direct).map(k=>k==="bread"?"BREADING":k.toUpperCase()).join(" / "),"warn");sfx.deny();buzz(30);return}
-      if(st==="bread")arr[idx]={kind:"bread",id:h.id,breadKey:key,elapsed:0,done:false};
-      else arr[idx]={kind:"cook",cookKey:key,elapsed:0,flipped:false,state:"cooking"};
+    const hand=sim.hand;
+    if(!hand)return;
+    if(hand.kind===KIND_ING){
+      const ing=PROTEINS.find(p=>p.id===hand.id);
+      const key=ing.direct[station];
+      if(!key){toast(ing.name+" goes on "+routeLabels(ing.direct," / "),TONE_WARN);sfx.deny();buzz(30);return}
+      if(station===ST_BREAD)slots[idx]={kind:KIND_BREADING,id:hand.id,breadKey:key,elapsed:0,done:false};
+      else slots[idx]={kind:KIND_COOK,cookKey:key,elapsed:0,flipped:false,state:STATE_COOKING};
       setHand(null);sfx.place();buzz(15);return;
     }
-    if(h.kind==="breaded"){
-      if(st!=="fryer"){toast("Breaded items go in the fryer","warn");sfx.deny();return}
-      arr[idx]={kind:"cook",cookKey:BREAD_MAP[h.id],elapsed:0,flipped:false,state:"cooking"};
+    if(hand.kind===KIND_BREADED){
+      if(station!==ST_FRYER){toast("Breaded items go in the fryer",TONE_WARN);sfx.deny();return}
+      slots[idx]={kind:KIND_COOK,cookKey:BREAD_MAP[hand.id],elapsed:0,flipped:false,state:STATE_COOKING};
       setHand(null);sfx.place();buzz(15);return;
     }
-    if(h.kind==="cooked"){
-      if(st!=="saute"){toast("Cooked food goes to a ticket, the window, or sauté","warn");sfx.deny();return}
-      const entry=Object.entries(COOK).find(([,c])=>c.st==="saute"&&c.needs&&c.needs.includes(h.product));
-      if(!entry){toast("No pasta calls for "+COOK[h.product].label,"warn");sfx.deny();return}
-      arr[idx]={kind:"cook",cookKey:entry[0],elapsed:0,flipped:false,state:"cooking"};
+    if(hand.kind===KIND_COOKED){
+      if(station!==ST_SAUTE){toast("Cooked food goes to a ticket, the window, or sauté",TONE_WARN);sfx.deny();return}
+      const entry=Object.entries(COOK).find(([,cook])=>cook.station===ST_SAUTE&&cook.needs&&cook.needs.includes(hand.product));
+      if(!entry){toast("No pasta calls for "+COOK[hand.product].label,TONE_WARN);sfx.deny();return}
+      slots[idx]={kind:KIND_COOK,cookKey:entry[0],elapsed:0,flipped:false,state:STATE_COOKING};
       setHand(null);sfx.place();buzz(15);return;
     }
-    toast("That doesn't go there","warn");sfx.deny();return;
+    toast("That doesn't go there",TONE_WARN);sfx.deny();return;
   }
-  if(item.kind==="bread"){
-    if(!item.done){toast("Still breading…","warn");return}
-    if(S.hand){toast("Hands full","warn");sfx.deny();return}
-    arr[idx]=null;
-    setHand({kind:"breaded",id:item.breadKey});
+  if(item.kind===KIND_BREADING){
+    if(!item.done){toast("Still breading…",TONE_WARN);return}
+    if(sim.hand){toast("Hands full",TONE_WARN);sfx.deny();return}
+    slots[idx]=null;
+    setHand({kind:KIND_BREADED,id:item.breadKey});
     return;
   }
-  const c=COOK[item.cookKey];
-  if(item.state==="burnt"){
-    arr[idx]=null;
-    S.score=Math.max(0,S.score-25);S.streak=0;S.burned++;
-    toast("Trashed "+c.label+"  −25","bad");sfx.burn();buzz([40,40,40]);
+  const cook=COOK[item.cookKey];
+  if(item.state===STATE_BURNT){
+    slots[idx]=null;
+    sim.score=Math.max(0,sim.score-25);sim.streak=0;sim.burned++;
+    toast("Trashed "+cook.label+"  −25",TONE_BAD);sfx.burn();buzz([40,40,40]);
     renderHUD();return;
   }
-  if(item.state==="up"){
-    if(S.hand){toast("Hands full","warn");sfx.deny();return}
-    arr[idx]=null;
-    setHand({kind:"cooked",product:item.cookKey});
+  if(item.state===STATE_UP){
+    if(sim.hand){toast("Hands full",TONE_WARN);sfx.deny();return}
+    slots[idx]=null;
+    setHand({kind:KIND_COOKED,product:item.cookKey});
     return;
   }
-  if(c.flip&&!item.flipped){
-    if(item.elapsed>=c.flip){item.flipped=true;toast("Flipped "+c.label,"good");sfx.flip();buzz(15)}
-    else toast("Early — flip in "+fmt(c.flip-item.elapsed),"warn");
+  if(cook.flip&&!item.flipped){
+    if(item.elapsed>=cook.flip){item.flipped=true;toast("Flipped "+cook.label,TONE_GOOD);sfx.flip();buzz(15)}
+    else toast("Early — flip in "+fmt(cook.flip-item.elapsed),TONE_WARN);
     return;
   }
-  toast(fmt(c.sec-item.elapsed)+" left on "+c.label,"warn");
+  toast(fmt(cook.sec-item.elapsed)+" left on "+cook.label,TONE_WARN);
 }
 function tapWindow(idx){
-  if(!S.running||S.paused)return;
-  const w=S.window[idx];
-  if(S.hand&&S.hand.kind==="cooked"&&!w){
-    S.window[idx]={product:S.hand.product,since:S.shiftSec};
+  if(!sim.running||sim.paused)return;
+  const windowItem=sim.window[idx];
+  if(sim.hand&&sim.hand.kind===KIND_COOKED&&!windowItem){
+    sim.window[idx]={product:sim.hand.product,since:sim.shiftSec};
     setHand(null);sfx.place();return;
   }
-  if(!S.hand&&w){
-    S.window[idx]=null;
-    setHand({kind:"cooked",product:w.product});return;
+  if(!sim.hand&&windowItem){
+    sim.window[idx]=null;
+    setHand({kind:KIND_COOKED,product:windowItem.product});return;
   }
-  if(S.hand&&w){toast("Slot's taken","warn");sfx.deny()}
+  if(sim.hand&&windowItem){toast("Slot's taken",TONE_WARN);sfx.deny()}
 }
 function tapTrash(){
-  if(!S.running||S.paused||!S.hand)return;
-  const h=S.hand;
-  if(h.kind==="cooked"){S.score=Math.max(0,S.score-10);toast("Wasted "+handLabel()+"  −10","bad");renderHUD()}
-  else toast("Put back "+handLabel(),"");
+  if(!sim.running||sim.paused||!sim.hand)return;
+  const hand=sim.hand;
+  if(hand.kind===KIND_COOKED){sim.score=Math.max(0,sim.score-10);toast("Wasted "+handLabel()+"  −10",TONE_BAD);renderHUD()}
+  else toast("Put back "+handLabel());
   setHand(null);
 }
 function tapTicket(ordId){
-  if(!S.running||S.paused)return;
-  const ord=S.orders.find(o=>o.id===ordId);if(!ord)return;
+  if(!sim.running||sim.paused)return;
+  const ord=sim.orders.find(o=>o.id===ordId);if(!ord)return;
   const key=handKey();
   if(!key){
-    if(S.hand){toast("That's raw — cook it first","warn");sfx.deny()}
+    if(sim.hand){toast("That's raw — cook it first",TONE_WARN);sfx.deny()}
     return;
   }
   const need=ticketNeeds(ord,key);
   if(!need){
-    toast("#"+ord.num+" doesn't call for "+handLabel(),"warn");sfx.deny();buzz(30);
-    const card=document.querySelector('[data-oid="'+ordId+'"]');
+    toast("#"+ord.num+" doesn't call for "+handLabel(),TONE_WARN);sfx.deny();buzz(30);
+    const card=document.querySelector(orderCardSelector(ordId));
     if(card){card.classList.remove("reject");void card.offsetWidth;card.classList.add("reject")}
     return;
   }
@@ -749,25 +778,25 @@ function tapTicket(ordId){
   sfx.plate();buzz(12);ordersDirty=true;renderTickets();
 }
 function sendOrder(ordId){
-  const i=S.orders.findIndex(o=>o.id===ordId);if(i<0)return;
-  const ord=S.orders[i];
+  const i=sim.orders.findIndex(o=>o.id===ordId);if(i<0)return;
+  const ord=sim.orders[i];
   if(!ord.items.every(it=>it.done))return;
-  const elapsed=S.shiftSec-ord.born,remain=ord.target-elapsed;
-  let pts=100,kind="good",msg="ORDER UP  +100";
-  S.streak++;
-  if(remain<0){pts=Math.max(20,60+Math.floor(remain/30)*10);msg="Sent late  +"+pts;kind="warn";S.streak=0;S.late++}
+  const elapsed=sim.shiftSec-ord.born,remain=ord.target-elapsed;
+  let pts=100,kind=TONE_GOOD,msg="ORDER UP  +100";
+  sim.streak++;
+  if(remain<0){pts=Math.max(20,60+Math.floor(remain/30)*10);msg="Sent late  +"+pts;kind=TONE_WARN;sim.streak=0;sim.late++}
   else if(remain<30){pts=130;msg="TIGHT!  +130"}
-  else if(S.streak>=3){pts+=25;msg="STREAK ×"+S.streak+"  +"+pts}
-  S.bestStreak=Math.max(S.bestStreak,S.streak);
-  S.score+=pts;S.sent++;S.sumTicketTime+=elapsed;
+  else if(sim.streak>=3){pts+=25;msg="STREAK ×"+sim.streak+"  +"+pts}
+  sim.bestStreak=Math.max(sim.bestStreak,sim.streak);
+  sim.score+=pts;sim.sent++;sim.sumTicketTime+=elapsed;
   const coins=Math.max(1,Math.round(pts/5));
-  S.earned+=coins;tips+=coins;xp+=pts;saveMeta();
-  if(S.score>best){best=S.score;localStorage.setItem("allday_best",JSON.stringify(best))}
+  sim.earned+=coins;tips+=coins;xp+=pts;saveMeta();
+  if(sim.score>best){best=sim.score;localStorage.setItem(KEY_BEST,JSON.stringify(best))}
   toast(msg,kind);sfx.send();sfx.coin();buzz([20,30,20]);
-  const card=document.querySelector('[data-oid="'+ordId+'"]');
+  const card=document.querySelector(orderCardSelector(ordId));
   const finish=()=>{
-    const j=S.orders.findIndex(o=>o.id===ordId);
-    if(j>=0){S.orders.splice(j,1);ordersDirty=true;renderTickets()}
+    const j=sim.orders.findIndex(o=>o.id===ordId);
+    if(j>=0){sim.orders.splice(j,1);ordersDirty=true;renderTickets()}
   };
   if(card){card.classList.add("bump");setTimeout(finish,300)}else finish();
   renderHUD();
@@ -779,59 +808,59 @@ let ordersDirty=false;
 function tick(){
   const now=performance.now();
   const real=(now-lastT)/1000;lastT=now;
-  if(!S||!S.running||S.paused)return;
-  const dt=Math.min(real,0.5)*S.speed;
-  S.shiftSec+=dt;
+  if(!sim||!sim.running||sim.paused)return;
+  const dt=Math.min(real,0.5)*sim.speed;
+  sim.shiftSec+=dt;
 
-  S.bread.forEach(b=>{
-    if(!b||b.kind!=="bread"||b.done)return;
-    b.elapsed+=dt;
-    if(b.elapsed>=breadSec()){b.done=true;sfx.up();buzz(20)}
+  sim.bread.forEach(breadItem=>{
+    if(!breadItem||breadItem.kind!==KIND_BREADING||breadItem.done)return;
+    breadItem.elapsed+=dt;
+    if(breadItem.elapsed>=breadSec()){breadItem.done=true;sfx.up();buzz(20)}
   });
-  ["fryer","grill","saute"].forEach(st=>{
-    S[st].forEach(it=>{
-      if(!it||it.kind!=="cook"||it.state==="burnt")return;
-      const c=COOK[it.cookKey];
-      it.elapsed+=dt;
-      if(it.state==="cooking"){
-        if(c.flip&&!it.flipped&&it.elapsed>c.flip+FLIP_GRACE){
-          it.state="burnt";toast(c.label+" burned — missed the flip","bad");sfx.burn();buzz([50,50,50]);
-        }else if((!c.flip||it.flipped)&&it.elapsed>=c.sec){
-          it.state="up";sfx.up();buzz(25);
+  [ST_FRYER,ST_GRILL,ST_SAUTE].forEach(station=>{
+    sim[station].forEach(item=>{
+      if(!item||item.kind!==KIND_COOK||item.state===STATE_BURNT)return;
+      const cook=COOK[item.cookKey];
+      item.elapsed+=dt;
+      if(item.state===STATE_COOKING){
+        if(cook.flip&&!item.flipped&&item.elapsed>cook.flip+FLIP_GRACE){
+          item.state=STATE_BURNT;toast(cook.label+" burned — missed the flip",TONE_BAD);sfx.burn();buzz([50,50,50]);
+        }else if((!cook.flip||item.flipped)&&item.elapsed>=cook.sec){
+          item.state=STATE_UP;sfx.up();buzz(25);
         }
-      }else if(it.state==="up"&&it.elapsed>c.sec+graceSec()){
-        it.state="burnt";toast(c.label+" died in the "+(st==="fryer"?"basket":st),"bad");sfx.burn();buzz([50,50,50]);
+      }else if(item.state===STATE_UP&&item.elapsed>cook.sec+graceSec()){
+        item.state=STATE_BURNT;toast(cook.label+" died in the "+(station===ST_FRYER?"basket":station),TONE_BAD);sfx.burn();buzz([50,50,50]);
       }
     });
   });
-  S.window.forEach((wi,i)=>{
-    if(!wi)return;
-    if(S.shiftSec-wi.since>HOLD_DEAD){
-      S.window[i]=null;
-      S.score=Math.max(0,S.score-15);
-      toast(COOK[wi.product].label+" died in the window  −15","bad");sfx.burn();
+  sim.window.forEach((windowItem,i)=>{
+    if(!windowItem)return;
+    if(sim.shiftSec-windowItem.since>HOLD_DEAD){
+      sim.window[i]=null;
+      sim.score=Math.max(0,sim.score-15);
+      toast(COOK[windowItem.product].label+" died in the window  −15",TONE_BAD);sfx.burn();
     }
   });
-  for(let i=S.orders.length-1;i>=0;i--){
-    const o=S.orders[i];
-    if(S.shiftSec-o.born>o.target+WALK_AFTER){
-      S.orders.splice(i,1);
-      S.walked++;S.streak=0;S.score=Math.max(0,S.score-75);
-      toast("#"+o.num+" walked  −75","bad");sfx.walk();buzz([60,40,60]);
+  for(let i=sim.orders.length-1;i>=0;i--){
+    const order=sim.orders[i];
+    if(sim.shiftSec-order.born>order.target+WALK_AFTER){
+      sim.orders.splice(i,1);
+      sim.walked++;sim.streak=0;sim.score=Math.max(0,sim.score-75);
+      toast("#"+order.num+" walked  −75",TONE_BAD);sfx.walk();buzz([60,40,60]);
       ordersDirty=true;
     }
   }
-  if(!S.lastCall&&S.shiftSec>=S.shiftLen-120){
-    S.lastCall=true;
-    toast("LAST CALL — clear the rail","warn");sfx.walk();
+  if(!sim.lastCall&&sim.shiftSec>=sim.shiftLen-120){
+    sim.lastCall=true;
+    toast("LAST CALL — clear the rail",TONE_WARN);sfx.walk();
   }
-  if(S.shiftSec>=S.shiftLen&&S.orders.length===0){endShift();return}
-  if(S.shiftSec>=S.shiftLen+300){endShift();return}
-  S.nextOrderIn-=dt;
-  if(S.nextOrderIn<=0){
-    const d=DIFF[S.diff];
-    if(!S.lastCall&&S.orders.length<d.max)spawnOrder();
-    S.nextOrderIn=d.gapMin+Math.random()*(d.gapMax-d.gapMin);
+  if(sim.shiftSec>=sim.shiftLen&&sim.orders.length===0){endShift();return}
+  if(sim.shiftSec>=sim.shiftLen+300){endShift();return}
+  sim.nextOrderIn-=dt;
+  if(sim.nextOrderIn<=0){
+    const diff=DIFF[sim.diff];
+    if(!sim.lastCall&&sim.orders.length<diff.max)spawnOrder();
+    sim.nextOrderIn=diff.gapMin+Math.random()*(diff.gapMax-diff.gapMin);
   }
   renderHUD();
   if(ordersDirty)renderTickets();else updateTicketAges();
@@ -841,14 +870,14 @@ function tick(){
 setInterval(tick,100);
 
 /* ══════════ SCENE — canvas kitchen ══════════ */
-const cv=el("scene");
+const cv=el(DOM.scene);
 const ctx=cv.getContext&&cv.getContext("2d");
 const WORLD={w:1560,h:500};
 let view={s:1,ox:0,oy:0,railH:150};
 const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /* station geometry (world units) */
-const GEO={
+const SCENE_GEOMETRY={
   pass:{x:260,y:16,w:1040,h:96,slots:[[560,68],[720,68],[880,68],[1040,68]]},
   bread:{x:40,y:170,w:230,h:170,label:"BREADING",slots:[[105,262],[196,262]]},
   fryer:{x:300,y:170,w:400,h:170,label:"FRYER · 350°",slots:[[352,262],[442,262],[532,262],[622,262]]},
@@ -862,20 +891,20 @@ const GEO={
 let hits=[];
 function buildHits(){
   hits=[];
-  ["bread","fryer","grill","saute"].forEach(st=>{
-    const g=GEO[st];
-    for(let i=0;i<(S?S[st].length:gear[st]);i++){
-      const [cx,cy]=g.slots[i];
-      hits.push({kind:"slot",st,idx:i,x:cx-44,y:cy-52,w:88,h:104});
+  [ST_BREAD,ST_FRYER,ST_GRILL,ST_SAUTE].forEach(station=>{
+    const geo=SCENE_GEOMETRY[station];
+    for(let i=0;i<(sim?sim[station].length:gear[station]);i++){
+      const [cx,cy]=geo.slots[i];
+      hits.push({kind:HIT_SLOT,station,idx:i,x:cx-44,y:cy-52,w:88,h:104});
     }
   });
-  for(let i=0;i<(S?S.window.length:gear.window);i++){
-    const [cx,cy]=GEO.pass.slots[i];
-    hits.push({kind:"window",idx:i,x:cx-52,y:cy-38,w:104,h:76});
+  for(let i=0;i<(sim?sim.window.length:gear.window);i++){
+    const [cx,cy]=SCENE_GEOMETRY.pass.slots[i];
+    hits.push({kind:HIT_WINDOW,idx:i,x:cx-52,y:cy-38,w:104,h:76});
   }
-  hits.push({kind:"trash",...GEO.trash});
-  hits.push({kind:"lowboy",...GEO.lowboy});
-  hits.push({kind:"lowboy",x:GEO.board.x,y:GEO.board.y,w:GEO.board.w,h:GEO.board.h});
+  hits.push({kind:HIT_TRASH,...SCENE_GEOMETRY.trash});
+  hits.push({kind:HIT_LOWBOY,...SCENE_GEOMETRY.lowboy});
+  hits.push({kind:HIT_LOWBOY,x:SCENE_GEOMETRY.board.x,y:SCENE_GEOMETRY.board.y,w:SCENE_GEOMETRY.board.w,h:SCENE_GEOMETRY.board.h});
 }
 function resize(){
   const sw=window.innerWidth,sh=window.innerHeight;
@@ -887,21 +916,21 @@ function resize(){
   view.s=Math.min(sw/WORLD.w,availH/WORLD.h);
   view.ox=(sw-WORLD.w*view.s)/2;
   view.oy=view.railH+(availH-WORLD.h*view.s)/2;
-  el("rotate").classList.toggle("show",sh>sw*1.15&&sw<700);
+  el(DOM.rotate).classList.toggle("show",sh>sw*1.15&&sw<700);
 }
 window.addEventListener("resize",resize);
 
 /* color helpers */
-function lerpC(a,b,t){
-  t=clamp(t,0,1);
-  return"rgb("+Math.round(a[0]+(b[0]-a[0])*t)+","+Math.round(a[1]+(b[1]-a[1])*t)+","+Math.round(a[2]+(b[2]-a[2])*t)+")";
+function lerpC(from,to,frac){
+  frac=clamp(frac,0,1);
+  return"rgb("+Math.round(from[0]+(to[0]-from[0])*frac)+","+Math.round(from[1]+(to[1]-from[1])*frac)+","+Math.round(from[2]+(to[2]-from[2])*frac)+")";
 }
-const RAWC={chunks:[214,178,150],fillet:[219,196,183],shrimp:[209,185,178],slab:[168,58,53],fries:[229,214,166],pasta:[232,220,194]};
-const COOKC={chunks:[178,110,42],fillet:[190,128,55],shrimp:[214,126,63],slab:[95,58,40],fries:[214,161,59],pasta:[228,206,160]};
-const CHAR=[26,19,15];
+const RAW_FOOD_COLORS={chunks:[214,178,150],fillet:[219,196,183],shrimp:[209,185,178],slab:[168,58,53],fries:[229,214,166],pasta:[232,220,194]};
+const COOKED_FOOD_COLORS={chunks:[178,110,42],fillet:[190,128,55],shrimp:[214,126,63],slab:[95,58,40],fries:[214,161,59],pasta:[228,206,160]};
+const CHARRED_COLOR=[26,19,15];
 function foodColor(cat,prog,burnt){
-  if(burnt)return lerpC(COOKC[cat],CHAR,1);
-  return lerpC(RAWC[cat],COOKC[cat],prog);
+  if(burnt)return lerpC(COOKED_FOOD_COLORS[cat],CHARRED_COLOR,1);
+  return lerpC(RAW_FOOD_COLORS[cat],COOKED_FOOD_COLORS[cat],prog);
 }
 
 /* particles */
@@ -916,28 +945,28 @@ function spawnPart(type,x,y){
 }
 function drawParts(dt){
   for(let i=parts.length-1;i>=0;i--){
-    const p=parts[i];
-    p.age+=dt;
-    if(p.age>=p.life){parts.splice(i,1);continue}
-    p.y+=p.vy*dt;p.x+=(p.vx||0)*dt;
-    const k=1-p.age/p.life;
-    if(p.type==="bubble"){
-      ctx.fillStyle="rgba(240,220,180,"+(.35*k)+")";
-      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
-    }else if(p.type==="steam"){
-      ctx.fillStyle="rgba(200,205,210,"+(.13*k)+")";
-      ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1.6-k*.6),0,7);ctx.fill();
-    }else if(p.type==="smoke"){
-      ctx.fillStyle="rgba(40,38,36,"+(.4*k)+")";
-      ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1.8-k*.8),0,7);ctx.fill();
+    const part=parts[i];
+    part.age+=dt;
+    if(part.age>=part.life){parts.splice(i,1);continue}
+    part.y+=part.vy*dt;part.x+=(part.vx||0)*dt;
+    const fade=1-part.age/part.life;
+    if(part.type==="bubble"){
+      ctx.fillStyle="rgba(240,220,180,"+(.35*fade)+")";
+      ctx.beginPath();ctx.arc(part.x,part.y,part.r,0,7);ctx.fill();
+    }else if(part.type==="steam"){
+      ctx.fillStyle="rgba(200,205,210,"+(.13*fade)+")";
+      ctx.beginPath();ctx.arc(part.x,part.y,part.r*(1.6-fade*.6),0,7);ctx.fill();
+    }else if(part.type==="smoke"){
+      ctx.fillStyle="rgba(40,38,36,"+(.4*fade)+")";
+      ctx.beginPath();ctx.arc(part.x,part.y,part.r*(1.8-fade*.8),0,7);ctx.fill();
     }else{
-      ctx.fillStyle="rgba(255,180,94,"+(.9*k)+")";
-      ctx.fillRect(p.x,p.y,2,2);
+      ctx.fillStyle="rgba(255,180,94,"+(.9*fade)+")";
+      ctx.fillRect(part.x,part.y,2,2);
     }
   }
 }
 
-function rr(x,y,w,h,r){
+function roundedRect(x,y,w,h,r){
   ctx.beginPath();
   ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
   ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
@@ -945,9 +974,9 @@ function rr(x,y,w,h,r){
 function steelBody(g){
   const grad=ctx.createLinearGradient(0,g.y,0,g.y+g.h);
   grad.addColorStop(0,"#31383e");grad.addColorStop(.12,"#272d33");grad.addColorStop(1,"#191d21");
-  ctx.fillStyle=grad;rr(g.x,g.y,g.w,g.h,10);ctx.fill();
+  ctx.fillStyle=grad;roundedRect(g.x,g.y,g.w,g.h,10);ctx.fill();
   ctx.strokeStyle="rgba(255,255,255,.06)";ctx.lineWidth=1;
-  rr(g.x+.5,g.y+.5,g.w-1,g.h-1,10);ctx.stroke();
+  roundedRect(g.x+.5,g.y+.5,g.w-1,g.h-1,10);ctx.stroke();
   ctx.fillStyle="rgba(0,0,0,.35)";
   ctx.fillRect(g.x+6,g.y+g.h-8,g.w-12,4);
 }
@@ -959,7 +988,7 @@ function stationLabel(g){
 }
 function lockedCover(cx,cy){
   ctx.fillStyle="#1b2024";
-  rr(cx-36,cy-30,72,60,8);ctx.fill();
+  roundedRect(cx-36,cy-30,72,60,8);ctx.fill();
   ctx.strokeStyle="rgba(255,255,255,.05)";ctx.stroke();
   ctx.fillStyle="rgba(232,147,58,.5)";
   ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fill();
@@ -992,9 +1021,9 @@ function drawFood(cat,cx,cy,prog,burnt,onGrill,idx){
       ctx.lineWidth=7;ctx.strokeStyle=col;ctx.stroke();
     }
   }else if(cat==="slab"){
-    rr(cx-27,cy-16,54,32,9);ctx.fill();
+    roundedRect(cx-27,cy-16,54,32,9);ctx.fill();
     ctx.fillStyle="rgba(255,255,255,.08)";
-    rr(cx-20,cy-11,26,9,4);ctx.fill();
+    roundedRect(cx-20,cy-11,26,9,4);ctx.fill();
   }else{ /* pasta */
     ctx.beginPath();ctx.arc(cx,cy,22,0,7);ctx.fill();
     ctx.strokeStyle="rgba(120,90,50,.5)";ctx.lineWidth=2;
@@ -1013,7 +1042,7 @@ function timerPill(cx,cy,txt,frac,color,flash,t){
   if(flash&&Math.sin(t*9)>0)return;
   const w=64,h=20;
   ctx.fillStyle="rgba(8,10,12,.85)";
-  rr(cx-w/2,cy-h/2,w,h,10);ctx.fill();
+  roundedRect(cx-w/2,cy-h/2,w,h,10);ctx.fill();
   if(frac!=null){
     ctx.strokeStyle=color;ctx.lineWidth=2.5;
     ctx.beginPath();ctx.arc(cx-w/2+11,cy,6,-Math.PI/2,-Math.PI/2+frac*Math.PI*2);ctx.stroke();
@@ -1030,15 +1059,15 @@ function targetGlow(cx,cy,w,h,t,round){
   ctx.strokeStyle="rgba(232,147,58,"+a+")";
   ctx.lineWidth=3;
   if(round){ctx.beginPath();ctx.arc(cx,cy,w/2,0,7);ctx.stroke()}
-  else{rr(cx-w/2,cy-h/2,w,h,10);ctx.stroke()}
+  else{roundedRect(cx-w/2,cy-h/2,w,h,10);ctx.stroke()}
 }
 
-function validTarget(st,idx){
-  const h=S&&S.hand;
-  if(!h||S[st][idx])return false;
-  if(h.kind==="ing"){const ing=PROTEINS.find(p=>p.id===h.id);return!!ing.direct[st]}
-  if(h.kind==="breaded")return st==="fryer";
-  if(h.kind==="cooked"&&st==="saute")return Object.values(COOK).some(c=>c.st==="saute"&&c.needs&&c.needs.includes(h.product));
+function validTarget(station,idx){
+  const hand=sim&&sim.hand;
+  if(!hand||sim[station][idx])return false;
+  if(hand.kind===KIND_ING){const ing=PROTEINS.find(p=>p.id===hand.id);return!!ing.direct[station]}
+  if(hand.kind===KIND_BREADED)return station===ST_FRYER;
+  if(hand.kind===KIND_COOKED&&station===ST_SAUTE)return Object.values(COOK).some(c=>c.station===ST_SAUTE&&c.needs&&c.needs.includes(hand.product));
   return false;
 }
 
@@ -1068,243 +1097,242 @@ function drawScene(){
   for(let y=150;y<WORLD.h;y+=90){ctx.beginPath();ctx.moveTo(-view.ox/view.s,y);ctx.lineTo(WORLD.w+view.ox/view.s,y);ctx.stroke()}
 
   /* ── PASS ── */
-  const P=GEO.pass;
+  const passGeo=SCENE_GEOMETRY.pass;
   /* heat lamp glow pool */
-  const lampG=ctx.createRadialGradient(P.x+P.w/2,P.y+50,20,P.x+P.w/2,P.y+50,P.w*.55);
+  const lampG=ctx.createRadialGradient(passGeo.x+passGeo.w/2,passGeo.y+50,20,passGeo.x+passGeo.w/2,passGeo.y+50,passGeo.w*.55);
   const flick=reduceMotion?1:.92+.08*Math.sin(t*11)+.04*Math.sin(t*23);
   lampG.addColorStop(0,"rgba(232,150,60,"+(.20*flick)+")");
   lampG.addColorStop(1,"rgba(232,150,60,0)");
-  ctx.fillStyle=lampG;ctx.fillRect(P.x-100,P.y-16,P.w+200,140);
-  steelBody(P);
+  ctx.fillStyle=lampG;ctx.fillRect(passGeo.x-100,passGeo.y-16,passGeo.w+200,140);
+  steelBody(passGeo);
   /* lamp cones */
   for(let i=0;i<4;i++){
-    const lx=P.x+170+i*240;
+    const lx=passGeo.x+170+i*240;
     ctx.fillStyle="#20262b";
-    ctx.beginPath();ctx.moveTo(lx-16,P.y+4);ctx.lineTo(lx+16,P.y+4);ctx.lineTo(lx+9,P.y+16);ctx.lineTo(lx-9,P.y+16);ctx.closePath();ctx.fill();
+    ctx.beginPath();ctx.moveTo(lx-16,passGeo.y+4);ctx.lineTo(lx+16,passGeo.y+4);ctx.lineTo(lx+9,passGeo.y+16);ctx.lineTo(lx-9,passGeo.y+16);ctx.closePath();ctx.fill();
     ctx.fillStyle="rgba(255,180,94,"+(.75*flick)+")";
-    ctx.beginPath();ctx.ellipse(lx,P.y+17,8,3,0,0,7);ctx.fill();
+    ctx.beginPath();ctx.ellipse(lx,passGeo.y+17,8,3,0,0,7);ctx.fill();
   }
   ctx.font="700 14px 'Archivo Narrow','Arial Narrow',sans-serif";
   ctx.textAlign="left";ctx.fillStyle="rgba(141,149,156,.7)";
-  ctx.fillText("PASS — HOT WINDOW",P.x+12,P.y+22);
+  ctx.fillText("PASS — HOT WINDOW",passGeo.x+12,passGeo.y+22);
   /* window plates */
   for(let i=0;i<gear.window;i++){
-    const[cx,cy]=P.slots[i];
-    const w=S?S.window[i]:null;
+    const[cx,cy]=passGeo.slots[i];
+    const held=sim?sim.window[i]:null;
     /* plate */
     ctx.fillStyle="#e7e2d6";
     ctx.beginPath();ctx.ellipse(cx,cy+8,44,15,0,0,7);ctx.fill();
     ctx.fillStyle="#d5cfc0";
     ctx.beginPath();ctx.ellipse(cx,cy+7,34,11,0,0,7);ctx.fill();
-    if(w){
-      const c=COOK[w.product];
-      drawFood(c.cat,cx,cy-2,1,false,false,i+3);
+    if(held){
+      const cook=COOK[held.product];
+      drawFood(cook.cat,cx,cy-2,1,false,false,i+3);
       if(!reduceMotion&&Math.random()<.1)spawnPart("steam",cx,cy-14);
-      const age=S.shiftSec-w.since;
+      const age=sim.shiftSec-held.since;
       if(age>HOLD_WARN)timerPill(cx,cy-34,fmt(HOLD_DEAD-age),null,"#d9a13b",false,t);
-    }else if(S&&S.hand&&S.hand.kind==="cooked"){
+    }else if(sim&&sim.hand&&sim.hand.kind===KIND_COOKED){
       targetGlow(cx,cy+4,96,50,t,false);
     }
   }
-  for(let i=gear.window;i<MAXG.window;i++){const[cx,cy]=P.slots[i];lockedCover(cx,cy)}
+  for(let i=gear.window;i<MAX_STATION_SLOTS.window;i++){const[cx,cy]=passGeo.slots[i];lockedCover(cx,cy)}
 
   /* ── HOT LINE stations ── */
   /* breading */
-  const B=GEO.bread;steelBody(B);stationLabel(B);
+  const breadGeo=SCENE_GEOMETRY.bread;steelBody(breadGeo);stationLabel(breadGeo);
   for(let i=0;i<gear.bread;i++){
-    const[cx,cy]=B.slots[i];
+    const[cx,cy]=breadGeo.slots[i];
     /* flour tray */
-    ctx.fillStyle="#3a3f3a";rr(cx-38,cy-30,76,60,7);ctx.fill();
-    ctx.fillStyle="#c9c4ae";rr(cx-32,cy-24,64,48,5);ctx.fill();
+    ctx.fillStyle="#3a3f3a";roundedRect(cx-38,cy-30,76,60,7);ctx.fill();
+    ctx.fillStyle="#c9c4ae";roundedRect(cx-32,cy-24,64,48,5);ctx.fill();
     ctx.fillStyle="rgba(255,255,255,.25)";
     ctx.beginPath();ctx.ellipse(cx-8,cy-6,14,6,.3,0,7);ctx.fill();
-    const b=S?S.bread[i]:null;
-    if(b){
-      const ing=PROTEINS.find(p=>p.id===b.id);
-      const ck=BREAD_MAP[b.breadKey];
-      drawFood(COOK[ck].cat,cx,cy,0,false,false,i);
-      if(b.done){
+    const breadItem=sim?sim.bread[i]:null;
+    if(breadItem){
+      const cookKey=BREAD_MAP[breadItem.breadKey];
+      drawFood(COOK[cookKey].cat,cx,cy,0,false,false,i);
+      if(breadItem.done){
         ctx.fillStyle="rgba(240,236,220,.55)"; /* flour dust coat */
         ctx.beginPath();ctx.ellipse(cx,cy,30,18,0,0,7);ctx.fill();
         timerPill(cx,cy-46,"GRAB",null,"#4fa870",false,t);
       }else{
-        timerPill(cx,cy-46,fmt(breadSec()-b.elapsed),b.elapsed/breadSec(),"#c9cba9",false,t);
+        timerPill(cx,cy-46,fmt(breadSec()-breadItem.elapsed),breadItem.elapsed/breadSec(),"#c9cba9",false,t);
       }
-    }else if(S&&validTarget("bread",i))targetGlow(cx,cy,84,66,t,false);
+    }else if(sim&&validTarget(ST_BREAD,i))targetGlow(cx,cy,84,66,t,false);
   }
-  for(let i=gear.bread;i<MAXG.bread;i++){const[cx,cy]=B.slots[i];lockedCover(cx,cy)}
+  for(let i=gear.bread;i<MAX_STATION_SLOTS.bread;i++){const[cx,cy]=breadGeo.slots[i];lockedCover(cx,cy)}
 
   /* fryer */
-  const F=GEO.fryer;steelBody(F);stationLabel(F);
+  const fryerGeo=SCENE_GEOMETRY.fryer;steelBody(fryerGeo);stationLabel(fryerGeo);
   for(let i=0;i<gear.fryer;i++){
-    const[cx,cy]=F.slots[i];
+    const[cx,cy]=fryerGeo.slots[i];
     /* oil well */
-    ctx.fillStyle="#141210";rr(cx-38,cy-32,76,64,8);ctx.fill();
+    ctx.fillStyle="#141210";roundedRect(cx-38,cy-32,76,64,8);ctx.fill();
     const oil=ctx.createRadialGradient(cx-10,cy-12,4,cx,cy,44);
     oil.addColorStop(0,"#4a3517");oil.addColorStop(.5,"#2c2010");oil.addColorStop(1,"#1a130a");
-    ctx.fillStyle=oil;rr(cx-33,cy-27,66,54,6);ctx.fill();
+    ctx.fillStyle=oil;roundedRect(cx-33,cy-27,66,54,6);ctx.fill();
     /* moving sheen */
     if(!reduceMotion){
       ctx.fillStyle="rgba(232,180,110,.07)";
       ctx.beginPath();ctx.ellipse(cx+Math.sin(t*1.3+i)*10,cy-6+Math.cos(t*.9+i*2)*4,20,7,.2,0,7);ctx.fill();
     }
-    const it=S?S.fryer[i]:null;
-    if(it){
-      const c=COOK[it.cookKey];
-      const prog=clamp(it.elapsed/c.sec,0,1);
-      drawFood(c.cat,cx,cy+2,prog,it.state==="burnt",false,i);
+    const item=sim?sim.fryer[i]:null;
+    if(item){
+      const cook=COOK[item.cookKey];
+      const prog=clamp(item.elapsed/cook.sec,0,1);
+      drawFood(cook.cat,cx,cy+2,prog,item.state===STATE_BURNT,false,i);
       /* oil covers lower part */
       ctx.fillStyle="rgba(30,21,10,.45)";
       ctx.beginPath();ctx.ellipse(cx,cy+14,33,12,0,0,7);ctx.fill();
-      if(it.state==="cooking"){
+      if(item.state===STATE_COOKING){
         if(!reduceMotion&&Math.random()<.5)spawnPart("bubble",cx,cy+8);
-        timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,"#e8933a",false,t);
-      }else if(it.state==="up"){
-        timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+        timerPill(cx,cy-48,fmt(cook.sec-item.elapsed),prog,"#e8933a",false,t);
+      }else if(item.state===STATE_UP){
+        timerPill(cx,cy-48,"UP "+fmt(item.elapsed-cook.sec),null,"#4fa870",false,t);
         if(!reduceMotion&&Math.random()<.06)spawnPart("steam",cx,cy-10);
       }else{
         timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
         if(!reduceMotion&&Math.random()<.2)spawnPart("smoke",cx,cy-8);
       }
-    }else if(S&&validTarget("fryer",i))targetGlow(cx,cy,84,70,t,false);
+    }else if(sim&&validTarget(ST_FRYER,i))targetGlow(cx,cy,84,70,t,false);
     /* basket handle */
     ctx.strokeStyle="#454c52";ctx.lineWidth=4;
     ctx.beginPath();ctx.moveTo(cx-14,cy-32);ctx.lineTo(cx+14,cy-32);ctx.stroke();
   }
-  for(let i=gear.fryer;i<MAXG.fryer;i++){const[cx,cy]=F.slots[i];lockedCover(cx,cy)}
+  for(let i=gear.fryer;i<MAX_STATION_SLOTS.fryer;i++){const[cx,cy]=fryerGeo.slots[i];lockedCover(cx,cy)}
 
   /* grill */
-  const G=GEO.grill;steelBody(G);stationLabel(G);
+  const grillGeo=SCENE_GEOMETRY.grill;steelBody(grillGeo);stationLabel(grillGeo);
   for(let i=0;i<gear.grill;i++){
-    const[cx,cy]=G.slots[i];
-    const it=S?S.grill[i]:null;
+    const[cx,cy]=grillGeo.slots[i];
+    const item=sim?sim.grill[i]:null;
     /* fire glow under grates */
-    const heat=it&&it.state!=="burnt"?1:.35;
+    const heat=item&&item.state!==STATE_BURNT?1:.35;
     const fg=ctx.createRadialGradient(cx,cy+6,4,cx,cy+6,42);
     const ff=reduceMotion?1:.85+.15*Math.sin(t*9+i*2.1)+.07*Math.sin(t*17+i);
     fg.addColorStop(0,"rgba(226,98,34,"+(.5*heat*ff)+")");
     fg.addColorStop(.6,"rgba(160,52,20,"+(.25*heat*ff)+")");
     fg.addColorStop(1,"rgba(0,0,0,0)");
-    ctx.fillStyle="#0d0b09";rr(cx-38,cy-32,76,64,8);ctx.fill();
-    ctx.fillStyle=fg;rr(cx-38,cy-32,76,64,8);ctx.fill();
+    ctx.fillStyle="#0d0b09";roundedRect(cx-38,cy-32,76,64,8);ctx.fill();
+    ctx.fillStyle=fg;roundedRect(cx-38,cy-32,76,64,8);ctx.fill();
     /* grates */
     ctx.strokeStyle="#1c1f22";ctx.lineWidth=5;
     for(let n=0;n<5;n++){ctx.beginPath();ctx.moveTo(cx-36,cy-24+n*12);ctx.lineTo(cx+36,cy-24+n*12);ctx.stroke()}
-    if(it){
-      const c=COOK[it.cookKey];
-      const prog=clamp(it.elapsed/c.sec,0,1);
-      drawFood(c.cat,cx,cy,prog,it.state==="burnt",true,i);
-      if(it.state==="cooking"){
-        const inFlip=c.flip&&!it.flipped&&it.elapsed>=c.flip;
+    if(item){
+      const cook=COOK[item.cookKey];
+      const prog=clamp(item.elapsed/cook.sec,0,1);
+      drawFood(cook.cat,cx,cy,prog,item.state===STATE_BURNT,true,i);
+      if(item.state===STATE_COOKING){
+        const inFlip=cook.flip&&!item.flipped&&item.elapsed>=cook.flip;
         if(inFlip){
           timerPill(cx,cy-48,"FLIP",null,"#d9a13b",true,t);
           if(!reduceMotion&&Math.random()<.15)spawnPart("spark",cx,cy);
         }else{
-          timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,c.flip&&!it.flipped?"#d9a13b":"#e8933a",false,t);
+          timerPill(cx,cy-48,fmt(cook.sec-item.elapsed),prog,cook.flip&&!item.flipped?"#d9a13b":"#e8933a",false,t);
         }
-        if(c.flip&&it.flipped){
+        if(cook.flip&&item.flipped){
           ctx.font="700 11px ui-monospace,monospace";ctx.textAlign="center";
           ctx.fillStyle="#4fa870";ctx.fillText("⤾✓",cx+28,cy-38);
         }
         if(!reduceMotion&&Math.random()<.12)spawnPart("steam",cx,cy-16);
-      }else if(it.state==="up"){
-        timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+      }else if(item.state===STATE_UP){
+        timerPill(cx,cy-48,"UP "+fmt(item.elapsed-cook.sec),null,"#4fa870",false,t);
       }else{
         timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
         if(!reduceMotion&&Math.random()<.2)spawnPart("smoke",cx,cy-10);
       }
-    }else if(S&&validTarget("grill",i))targetGlow(cx,cy,84,70,t,false);
+    }else if(sim&&validTarget(ST_GRILL,i))targetGlow(cx,cy,84,70,t,false);
   }
-  for(let i=gear.grill;i<MAXG.grill;i++){const[cx,cy]=G.slots[i];lockedCover(cx,cy)}
+  for(let i=gear.grill;i<MAX_STATION_SLOTS.grill;i++){const[cx,cy]=grillGeo.slots[i];lockedCover(cx,cy)}
 
   /* sauté */
-  const SA=GEO.saute;steelBody(SA);stationLabel(SA);
+  const sauteGeo=SCENE_GEOMETRY.saute;steelBody(sauteGeo);stationLabel(sauteGeo);
   for(let i=0;i<gear.saute;i++){
-    const[cx,cy]=SA.slots[i];
+    const[cx,cy]=sauteGeo.slots[i];
     /* burner ring */
     ctx.strokeStyle="#111417";ctx.lineWidth=9;
     ctx.beginPath();ctx.arc(cx,cy,30,0,7);ctx.stroke();
-    const it=S?S.saute[i]:null;
-    if(it||!S){
+    const item=sim?sim.saute[i]:null;
+    if(item||!sim){
       /* pan */
       ctx.fillStyle="#15181b";ctx.beginPath();ctx.arc(cx,cy,28,0,7);ctx.fill();
       ctx.strokeStyle="#31383e";ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,28,0,7);ctx.stroke();
       ctx.strokeStyle="#262c31";ctx.lineWidth=6;
       ctx.beginPath();ctx.moveTo(cx+27,cy-8);ctx.lineTo(cx+48,cy-16);ctx.stroke();
     }
-    if(it){
+    if(item){
       /* gas flame */
-      if(it.state!=="burnt"&&!reduceMotion){
+      if(item.state!==STATE_BURNT&&!reduceMotion){
         ctx.fillStyle="rgba(90,140,235,"+(.5+.2*Math.sin(t*13+i))+")";
         for(let n=0;n<8;n++){
           const a=n/8*Math.PI*2;
           ctx.beginPath();ctx.ellipse(cx+Math.cos(a)*33,cy+Math.sin(a)*33,2.5,5,a+Math.PI/2,0,7);ctx.fill();
         }
       }
-      const c=COOK[it.cookKey];
-      const prog=clamp(it.elapsed/c.sec,0,1);
-      drawFood("pasta",cx,cy,prog,it.state==="burnt",false,i);
-      if(it.state==="cooking"){
-        timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,"#e8933a",false,t);
+      const cook=COOK[item.cookKey];
+      const prog=clamp(item.elapsed/cook.sec,0,1);
+      drawFood("pasta",cx,cy,prog,item.state===STATE_BURNT,false,i);
+      if(item.state===STATE_COOKING){
+        timerPill(cx,cy-48,fmt(cook.sec-item.elapsed),prog,"#e8933a",false,t);
         if(!reduceMotion&&Math.random()<.15)spawnPart("steam",cx,cy-12);
-      }else if(it.state==="up")timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+      }else if(item.state===STATE_UP)timerPill(cx,cy-48,"UP "+fmt(item.elapsed-cook.sec),null,"#4fa870",false,t);
       else timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
-    }else if(S&&validTarget("saute",i))targetGlow(cx,cy,74,74,t,true);
+    }else if(sim&&validTarget(ST_SAUTE,i))targetGlow(cx,cy,74,74,t,true);
   }
-  for(let i=gear.saute;i<MAXG.saute;i++){const[cx,cy]=SA.slots[i];lockedCover(cx,cy)}
+  for(let i=gear.saute;i<MAX_STATION_SLOTS.saute;i++){const[cx,cy]=sauteGeo.slots[i];lockedCover(cx,cy)}
 
   /* ── COUNTER / LOWBOY ── */
-  const C=GEO.counter;
-  const cg=ctx.createLinearGradient(0,C.y,0,C.y+C.h);
+  const counterGeo=SCENE_GEOMETRY.counter;
+  const cg=ctx.createLinearGradient(0,counterGeo.y,0,counterGeo.y+counterGeo.h);
   cg.addColorStop(0,"#2b3137");cg.addColorStop(.1,"#22272c");cg.addColorStop(1,"#15181b");
-  ctx.fillStyle=cg;ctx.fillRect(C.x-view.ox/view.s,C.y,C.w+2*view.ox/view.s,C.h);
-  ctx.fillStyle="rgba(255,255,255,.05)";ctx.fillRect(C.x-view.ox/view.s,C.y,C.w+2*view.ox/view.s,2);
+  ctx.fillStyle=cg;ctx.fillRect(counterGeo.x-view.ox/view.s,counterGeo.y,counterGeo.w+2*view.ox/view.s,counterGeo.h);
+  ctx.fillStyle="rgba(255,255,255,.05)";ctx.fillRect(counterGeo.x-view.ox/view.s,counterGeo.y,counterGeo.w+2*view.ox/view.s,2);
   /* lowboy drawers */
-  const L=GEO.lowboy;
+  const lowboyGeo=SCENE_GEOMETRY.lowboy;
   for(let i=0;i<3;i++){
-    const dx=L.x+8+i*186;
-    ctx.fillStyle="#1d2226";rr(dx,L.y+8,174,76,6);ctx.fill();
-    ctx.strokeStyle="rgba(255,255,255,.06)";rr(dx+.5,L.y+8.5,173,75,6);ctx.stroke();
-    ctx.fillStyle="#454c52";rr(dx+52,L.y+18,70,7,3.5);ctx.fill();
+    const dx=lowboyGeo.x+8+i*186;
+    ctx.fillStyle="#1d2226";roundedRect(dx,lowboyGeo.y+8,174,76,6);ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,.06)";roundedRect(dx+.5,lowboyGeo.y+8.5,173,75,6);ctx.stroke();
+    ctx.fillStyle="#454c52";roundedRect(dx+52,lowboyGeo.y+18,70,7,3.5);ctx.fill();
   }
   ctx.font="700 15px 'Archivo Narrow','Arial Narrow',sans-serif";
   ctx.textAlign="left";ctx.fillStyle="rgba(232,147,58,.8)";
-  ctx.fillText("LOWBOY — TAP FOR STOCK",L.x+12,L.y-4);
+  ctx.fillText("LOWBOY — TAP FOR STOCK",lowboyGeo.x+12,lowboyGeo.y-4);
   /* cutting board + held item */
-  const BD=GEO.board;
-  ctx.fillStyle="#4a3d2c";rr(BD.x,BD.y,BD.w,BD.h,8);ctx.fill();
-  ctx.fillStyle="#5b4c37";rr(BD.x+6,BD.y+6,BD.w-12,BD.h-12,6);ctx.fill();
-  if(S&&S.hand){
-    const h=S.hand;
+  const boardGeo=SCENE_GEOMETRY.board;
+  ctx.fillStyle="#4a3d2c";roundedRect(boardGeo.x,boardGeo.y,boardGeo.w,boardGeo.h,8);ctx.fill();
+  ctx.fillStyle="#5b4c37";roundedRect(boardGeo.x+6,boardGeo.y+6,boardGeo.w-12,boardGeo.h-12,6);ctx.fill();
+  if(sim&&sim.hand){
+    const hand=sim.hand;
     let cat="chunks",prog=0;
-    if(h.kind==="cooked"){cat=COOK[h.product].cat;prog=1}
-    else if(h.kind==="breaded")cat=COOK[BREAD_MAP[h.id]].cat;
-    else if(h.kind==="ing"){const d=PROTEINS.find(p=>p.id===h.id).direct;const k=d.fryer||d.grill||(d.bread?BREAD_MAP[d.bread]:null);cat=k?COOK[k].cat:"chunks"}
-    if(h.kind==="side"||h.kind==="cold"){
-      ctx.fillStyle=h.kind==="side"?"#c9a86a":"#b9c4cc";
-      ctx.beginPath();ctx.ellipse(BD.x+BD.w/2,BD.y+BD.h/2,26,15,0,0,7);ctx.fill();
+    if(hand.kind===KIND_COOKED){cat=COOK[hand.product].cat;prog=1}
+    else if(hand.kind===KIND_BREADED)cat=COOK[BREAD_MAP[hand.id]].cat;
+    else if(hand.kind===KIND_ING){const direct=PROTEINS.find(p=>p.id===hand.id).direct;const cookKey=direct.fryer||direct.grill||(direct.bread?BREAD_MAP[direct.bread]:null);cat=cookKey?COOK[cookKey].cat:"chunks"}
+    if(hand.kind===KIND_SIDE||hand.kind===KIND_COLD){
+      ctx.fillStyle=hand.kind===KIND_SIDE?"#c9a86a":"#b9c4cc";
+      ctx.beginPath();ctx.ellipse(boardGeo.x+boardGeo.w/2,boardGeo.y+boardGeo.h/2,26,15,0,0,7);ctx.fill();
     }else{
-      drawFood(cat,BD.x+BD.w/2,BD.y+BD.h/2,prog,false,false,1);
-      if(h.kind==="breaded"){
+      drawFood(cat,boardGeo.x+boardGeo.w/2,boardGeo.y+boardGeo.h/2,prog,false,false,1);
+      if(hand.kind===KIND_BREADED){
         ctx.fillStyle="rgba(240,236,220,.5)";
-        ctx.beginPath();ctx.ellipse(BD.x+BD.w/2,BD.y+BD.h/2,30,17,0,0,7);ctx.fill();
+        ctx.beginPath();ctx.ellipse(boardGeo.x+boardGeo.w/2,boardGeo.y+boardGeo.h/2,30,17,0,0,7);ctx.fill();
       }
     }
   }else{
     ctx.font="700 12px 'Archivo Narrow','Arial Narrow',sans-serif";
     ctx.textAlign="center";ctx.fillStyle="rgba(0,0,0,.35)";
-    ctx.fillText("BOARD",BD.x+BD.w/2,BD.y+BD.h/2+4);
+    ctx.fillText("BOARD",boardGeo.x+boardGeo.w/2,boardGeo.y+boardGeo.h/2+4);
   }
   /* trash */
-  const T=GEO.trash;
-  ctx.fillStyle="#1a1e22";rr(T.x+18,T.y+20,74,58,7);ctx.fill();
-  ctx.fillStyle="#22272c";rr(T.x+12,T.y+10,86,14,5);ctx.fill();
+  const trashGeo=SCENE_GEOMETRY.trash;
+  ctx.fillStyle="#1a1e22";roundedRect(trashGeo.x+18,trashGeo.y+20,74,58,7);ctx.fill();
+  ctx.fillStyle="#22272c";roundedRect(trashGeo.x+12,trashGeo.y+10,86,14,5);ctx.fill();
   ctx.strokeStyle="rgba(255,255,255,.07)";ctx.lineWidth=1.5;
-  for(let n=0;n<3;n++){ctx.beginPath();ctx.moveTo(T.x+36+n*19,T.y+30);ctx.lineTo(T.x+36+n*19,T.y+70);ctx.stroke()}
+  for(let n=0;n<3;n++){ctx.beginPath();ctx.moveTo(trashGeo.x+36+n*19,trashGeo.y+30);ctx.lineTo(trashGeo.x+36+n*19,trashGeo.y+70);ctx.stroke()}
   ctx.font="700 11px 'Archivo Narrow','Arial Narrow',sans-serif";
   ctx.textAlign="center";ctx.fillStyle="rgba(141,149,156,.55)";
-  ctx.fillText("WASTE",T.x+55,T.y+90);
-  if(S&&S.hand)targetGlow(T.x+55,T.y+48,96,86,t,false);
+  ctx.fillText("WASTE",trashGeo.x+55,trashGeo.y+90);
+  if(sim&&sim.hand)targetGlow(trashGeo.x+55,trashGeo.y+48,96,86,t,false);
 
   drawParts(fdt);
   ctx.restore();
@@ -1313,240 +1341,240 @@ function drawScene(){
 
 /* pointer → world hit test */
 cv.addEventListener("pointerdown",e=>{
-  if(!S||!S.running||S.paused)return;
+  if(!sim||!sim.running||sim.paused)return;
   const wx=(e.clientX-view.ox)/view.s, wy=(e.clientY-view.oy)/view.s;
-  for(const h of hits){
-    if(wx>=h.x&&wx<=h.x+h.w&&wy>=h.y&&wy<=h.y+h.h){
-      if(h.kind==="slot")tapSlot(h.st,h.idx);
-      else if(h.kind==="window")tapWindow(h.idx);
-      else if(h.kind==="trash")tapTrash();
-      else if(h.kind==="lowboy"&&!S.hand)openDrawer();
+  for(const hit of hits){
+    if(wx>=hit.x&&wx<=hit.x+hit.w&&wy>=hit.y&&wy<=hit.y+hit.h){
+      if(hit.kind===HIT_SLOT)tapSlot(hit.station,hit.idx);
+      else if(hit.kind===HIT_WINDOW)tapWindow(hit.idx);
+      else if(hit.kind===HIT_TRASH)tapTrash();
+      else if(hit.kind===HIT_LOWBOY&&!sim.hand)openDrawer();
       return;
     }
   }
 });
 
 /* ══════════ DOM UI ══════════ */
-function ticketLineHTML(it){
+function ticketLineHTML(item){
   let txt,cls="t-line";
-  if(it.kind==="cook")txt="1 "+COOK[it.product].ticket;
-  else if(it.kind==="cook_choice")txt="1 "+COOK[it.products[0]].ticket.split(" ")[0]+" F/G";
-  else if(it.kind==="side"){cls+=" side";txt="+ "+SIDES.find(s=>s.id===it.product).short}
-  else{cls+=" side";txt="+ "+COLD.find(c=>c.id===it.product).short}
-  if(it.done)cls+=" done";
+  if(item.kind===KIND_COOK)txt="1 "+COOK[item.product].ticket;
+  else if(item.kind===KIND_COOK_CHOICE)txt="1 "+COOK[item.products[0]].ticket.split(" ")[0]+" F/G";
+  else if(item.kind===KIND_SIDE){cls+=" side";txt="+ "+SIDES.find(s=>s.id===item.product).short}
+  else{cls+=" side";txt="+ "+COLD.find(c=>c.id===item.product).short}
+  if(item.done)cls+=" done";
   return'<div class="'+cls+'">'+txt+'</div>';
 }
 function renderTickets(){
-  const rail=el("rail");
-  const sl=rail.scrollLeft;
+  const rail=el(DOM.rail);
+  const savedScroll=rail.scrollLeft;
   rail.innerHTML="";
-  S.orders.forEach((o,i)=>{
+  sim.orders.forEach((order,i)=>{
     const card=document.createElement("div");
-    card.className="ticket"+(S.shiftSec-o.born<1.2?" fresh":"");
-    card.dataset.oid=o.id;
+    card.className="ticket"+(sim.shiftSec-order.born<1.2?" fresh":"");
+    card.dataset[DATASET_ORDER_ID]=order.id;
     card.style.setProperty("--tilt",((i*47)%5-2)*.6+"deg");
-    const complete=o.items.every(it=>it.done);
+    const complete=order.items.every(it=>it.done);
     card.innerHTML=
-      '<div class="t-head"><span>#'+o.num+'</span><span class="t-type">'+o.type+'</span><span class="t-age"></span></div>'+
-      '<div class="t-meal">'+o.label+' · '+o.who+'</div>'+
-      '<div class="t-items">'+o.items.map(ticketLineHTML).join("")+'</div>'+
+      '<div class="t-head"><span>#'+order.num+'</span><span class="t-type">'+order.type+'</span><span class="t-age"></span></div>'+
+      '<div class="t-meal">'+order.label+' · '+order.who+'</div>'+
+      '<div class="t-items">'+order.items.map(ticketLineHTML).join("")+'</div>'+
       (complete?'<button class="t-send">SEND</button>':'');
     card.addEventListener("click",e=>{
-      if(e.target.classList.contains("t-send"))sendOrder(o.id);
-      else tapTicket(o.id);
+      if(e.target.classList.contains("t-send"))sendOrder(order.id);
+      else tapTicket(order.id);
     });
     rail.appendChild(card);
   });
-  if(S.running){
-    const g=document.createElement("div");
-    g.className="ghost-ticket";g.id="ghost-t";
-    rail.appendChild(g);
+  if(sim.running){
+    const ghost=document.createElement("div");
+    ghost.className="ghost-ticket";ghost.id=DOM.ghostTicket;
+    rail.appendChild(ghost);
   }
-  rail.scrollLeft=sl;
+  rail.scrollLeft=savedScroll;
   ordersDirty=false;
   markTicketTargets();
   updateTicketAges();
 }
 function updateTicketAges(){
-  const rail=el("rail");
-  S.orders.forEach(o=>{
-    const card=rail.querySelector('[data-oid="'+o.id+'"]');
+  const rail=el(DOM.rail);
+  sim.orders.forEach(order=>{
+    const card=rail.querySelector(orderCardSelector(order.id));
     if(!card)return;
-    const age=S.shiftSec-o.born,fr=age/o.target;
-    card.dataset.age=fr>=1?"late":fr>=.6?"warn":"ok";
-    const a=card.querySelector(".t-age");
-    if(a)a.textContent=fmt(age);
+    const age=sim.shiftSec-order.born,ageFrac=age/order.target;
+    card.dataset.age=ageFrac>=1?AGE_LATE:ageFrac>=.6?AGE_WARN:AGE_OK;
+    const ageEl=card.querySelector(".t-age");
+    if(ageEl)ageEl.textContent=fmt(age);
   });
-  const g=el("ghost-t");
-  if(g){
-    const d=DIFF[S.diff];
-    g.innerHTML=S.lastCall?"kitchen<br>closed":S.orders.length>=d.max?"line<br>full":
-      S.nextOrderIn>90?"next<br>later":"next<br>~"+Math.max(1,Math.ceil(S.nextOrderIn))+"s";
+  const ghost=el(DOM.ghostTicket);
+  if(ghost){
+    const diff=DIFF[sim.diff];
+    ghost.innerHTML=sim.lastCall?"kitchen<br>closed":sim.orders.length>=diff.max?"line<br>full":
+      sim.nextOrderIn>90?"next<br>later":"next<br>~"+Math.max(1,Math.ceil(sim.nextOrderIn))+"s";
   }
 }
 function markTicketTargets(){
-  const key=S?handKey():null;
+  const key=sim?handKey():null;
   document.querySelectorAll(".ticket").forEach(card=>{
-    const o=S.orders.find(x=>x.id===card.dataset.oid);
-    card.classList.toggle("match",!!(key&&o&&ticketNeeds(o,key)));
+    const order=sim.orders.find(x=>x.id===card.dataset[DATASET_ORDER_ID]);
+    card.classList.toggle("match",!!(key&&order&&ticketNeeds(order,key)));
   });
 }
 function renderHand(){
-  const chip=el("hand-chip"),hint=el("hand-hint");
-  if(S&&S.hand){chip.classList.add("show");chip.textContent=handLabel()}
+  const chip=el(DOM.handChip),hint=el(DOM.handHint);
+  if(sim&&sim.hand){chip.classList.add("show");chip.textContent=handLabel()}
   else chip.classList.remove("show");
-  hint.textContent=S?handHint():"";
-  document.querySelectorAll(".chip").forEach(c=>{
-    c.classList.toggle("held",!!(S&&S.hand)&&(S.hand.kind==="ing"||S.hand.kind==="side"||S.hand.kind==="cold")&&c.dataset.id===S.hand.id);
+  hint.textContent=sim?handHint():"";
+  document.querySelectorAll(".chip").forEach(chipBtn=>{
+    chipBtn.classList.toggle("held",!!(sim&&sim.hand)&&(sim.hand.kind===KIND_ING||sim.hand.kind===KIND_SIDE||sim.hand.kind===KIND_COLD)&&chipBtn.dataset.id===sim.hand.id);
   });
   markTicketTargets();
 }
 function buildBank(){
-  const pr=el("bank-proteins");pr.innerHTML="";
-  PROTEINS.forEach(p=>{
-    const routes=Object.keys(p.direct).map(k=>k==="bread"?"BRD":k==="fryer"?"FRY":"GRL").join("·");
-    const b=document.createElement("button");
-    b.className="chip";b.dataset.id=p.id;
-    b.innerHTML='<span class="c-name">'+p.name+'</span><span class="c-route">'+routes+'</span><span class="badge"></span>';
-    b.addEventListener("click",()=>tapBank("ing",p.id));
-    pr.appendChild(b);
+  const proteinBox=el(DOM.bankProteins);proteinBox.innerHTML="";
+  PROTEINS.forEach(protein=>{
+    const routes=Object.keys(protein.direct).map(k=>k===ST_BREAD?"BRD":k===ST_FRYER?"FRY":"GRL").join("·");
+    const btn=document.createElement("button");
+    btn.className="chip";btn.dataset.id=protein.id;
+    btn.innerHTML='<span class="c-name">'+protein.name+'</span><span class="c-route">'+routes+'</span><span class="badge"></span>';
+    btn.addEventListener("click",()=>tapBank(KIND_ING,protein.id));
+    proteinBox.appendChild(btn);
   });
-  const ins=el("bank-instant");ins.innerHTML="";
-  SIDES.forEach(s=>{
-    const b=document.createElement("button");
-    b.className="chip";b.dataset.id=s.id;
-    b.innerHTML='<span class="c-name">'+s.short+'</span><span class="c-route">HOT HOLD</span><span class="badge"></span>';
-    b.addEventListener("click",()=>tapBank("side",s.id));
-    ins.appendChild(b);
+  const instantBox=el(DOM.bankInstant);instantBox.innerHTML="";
+  SIDES.forEach(side=>{
+    const btn=document.createElement("button");
+    btn.className="chip";btn.dataset.id=side.id;
+    btn.innerHTML='<span class="c-name">'+side.short+'</span><span class="c-route">HOT HOLD</span><span class="badge"></span>';
+    btn.addEventListener("click",()=>tapBank(KIND_SIDE,side.id));
+    instantBox.appendChild(btn);
   });
-  COLD.forEach(c=>{
-    const b=document.createElement("button");
-    b.className="chip cold-chip";b.dataset.id=c.id;
-    b.innerHTML='<span class="c-name">'+c.short+'</span><span class="c-route">COLD</span><span class="badge"></span>';
-    b.addEventListener("click",()=>tapBank("cold",c.id));
-    ins.appendChild(b);
+  COLD.forEach(cold=>{
+    const btn=document.createElement("button");
+    btn.className="chip cold-chip";btn.dataset.id=cold.id;
+    btn.innerHTML='<span class="c-name">'+cold.short+'</span><span class="c-route">COLD</span><span class="badge"></span>';
+    btn.addEventListener("click",()=>tapBank(KIND_COLD,cold.id));
+    instantBox.appendChild(btn);
   });
 }
 let badgeTimer=0;
 function updateBadges(){
-  if(!S)return;
+  if(!sim)return;
   const demand={};
-  S.orders.forEach(o=>o.items.forEach(it=>{
+  sim.orders.forEach(o=>o.items.forEach(it=>{
     if(it.done)return;
-    const keys=it.kind==="cook_choice"?it.products:[it.product];
-    keys.forEach(k=>demand[k]=(demand[k]||0)+(it.kind==="cook_choice"?.5:1));
+    const keys=it.kind===KIND_COOK_CHOICE?it.products:[it.product];
+    keys.forEach(k=>demand[k]=(demand[k]||0)+(it.kind===KIND_COOK_CHOICE?.5:1));
   }));
   document.querySelectorAll("#bank-proteins .chip").forEach(chip=>{
-    const p=PROTEINS.find(x=>x.id===chip.dataset.id);
-    let n=0;
-    Object.values(p.direct).forEach(v=>{
-      const ck=v.startsWith("_")?BREAD_MAP[v]:v;
-      n+=demand[ck]||0;
-      Object.entries(COOK).forEach(([ak,ac])=>{if(ac.needs&&ac.needs.includes(ck))n+=demand[ak]||0});
+    const protein=PROTEINS.find(x=>x.id===chip.dataset.id);
+    let count=0;
+    Object.values(protein.direct).forEach(route=>{
+      const cookKey=route.startsWith("_")?BREAD_MAP[route]:route;
+      count+=demand[cookKey]||0;
+      Object.entries(COOK).forEach(([dishKey,dish])=>{if(dish.needs&&dish.needs.includes(cookKey))count+=demand[dishKey]||0});
     });
-    const b=chip.querySelector(".badge");n=Math.ceil(n);
-    b.classList.toggle("on",n>0);b.textContent=n>9?"9+":n;
+    const badge=chip.querySelector(".badge");count=Math.ceil(count);
+    badge.classList.toggle("on",count>0);badge.textContent=count>9?"9+":count;
   });
   document.querySelectorAll("#bank-instant .chip").forEach(chip=>{
-    const n=Math.ceil(demand[chip.dataset.id]||0);
-    const b=chip.querySelector(".badge");
-    b.classList.toggle("on",n>0);b.textContent=n>9?"9+":n;
+    const count=Math.ceil(demand[chip.dataset.id]||0);
+    const badge=chip.querySelector(".badge");
+    badge.classList.toggle("on",count>0);badge.textContent=count>9?"9+":count;
   });
 }
 function renderHUD(){
-  if(!S)return;
-  el("score").textContent=S.score;
-  el("tips").textContent=tips;
-  el("streak").textContent=S.streak>=2?"◆×"+S.streak:"";
-  const c=el("clock"),left=S.shiftLen-S.shiftSec;
-  c.textContent=fmt(S.shiftSec);
-  c.style.color=left<=0?"var(--late-hi)":S.lastCall?"var(--warn)":"";
-  el("day-line").textContent="DAY "+day+" · "+LEVELS[careerAt(xp)][1];
+  if(!sim)return;
+  el(DOM.score).textContent=sim.score;
+  el(DOM.tips).textContent=tips;
+  el(DOM.streak).textContent=sim.streak>=2?"◆×"+sim.streak:"";
+  const clockEl=el(DOM.clock),left=sim.shiftLen-sim.shiftSec;
+  clockEl.textContent=fmt(sim.shiftSec);
+  clockEl.style.color=left<=0?"var(--late-hi)":sim.lastCall?"var(--warn)":"";
+  el(DOM.dayLine).textContent="DAY "+day+" · "+LEVELS[careerAt(xp)][1];
 }
-function openDrawer(){el("drawer").classList.add("open");updateBadges()}
-function closeDrawer(){el("drawer").classList.remove("open")}
+function openDrawer(){el(DOM.drawer).classList.add("open");updateBadges()}
+function closeDrawer(){el(DOM.drawer).classList.remove("open")}
 
 /* ══════════ SHIFT FLOW ══════════ */
 function startShift(){
-  S=freshState(chosenDiff,chosenSpeed);
-  S.running=true;
+  sim=freshState(chosenDiff,chosenSpeed);
+  sim.running=true;
   buildHits();buildBank();renderHand();
-  el("ov-start").classList.add("hidden");
-  el("ov-report").classList.add("hidden");
-  el("ov-shop").classList.add("hidden");
+  el(DOM.ovStart).classList.add("hidden");
+  el(DOM.ovReport).classList.add("hidden");
+  el(DOM.ovShop).classList.add("hidden");
   closeDrawer();
-  const d=DIFF[S.diff];
+  const d=DIFF[sim.diff];
   for(let i=0;i<d.init;i++)spawnOrder();
-  S.nextOrderIn=d.gapMin;
+  sim.nextOrderIn=d.gapMin;
   renderTickets();updateBadges();renderHUD();
   lastT=performance.now();
   sfx.send();
 }
 function endShift(){
-  S.running=false;
-  if(S.score>best){best=S.score;localStorage.setItem("allday_best",JSON.stringify(best))}
+  sim.running=false;
+  if(sim.score>best){best=sim.score;localStorage.setItem(KEY_BEST,JSON.stringify(best))}
   day++;saveMeta();
-  const avg=S.sent?S.sumTicketTime/S.sent:0;
-  const total=S.sent+S.walked;
-  const acc=total?S.sent/total:0;
-  let g="D",word="Rough shift";
-  if(S.sent>=3&&acc>=.95&&S.late===0&&S.burned===0){g="S";word="Flawless service"}
-  else if(S.sent>=2&&acc>=.9&&S.burned<=1){g="A";word="Solid line cook"}
-  else if(acc>=.7){g="B";word="Getting there"}
-  else if(S.sent>0){g="C";word="Keep drilling"}
-  el("grade").textContent=g;
-  el("grade").classList.toggle("low",g==="C"||g==="D");
-  el("grade-word").innerHTML=word+'<small>'+DIFF[S.diff].name+' · '+S.speed+'× clock</small>';
-  el("earn-line").textContent="+"+S.earned+" tips earned · "+tips+" total";
-  const stat=(v,k,cls)=>'<div class="stat"><div class="v '+(cls||"")+'">'+v+'</div><div class="k">'+k+'</div></div>';
-  el("stat-grid").innerHTML=
-    stat(S.score,"Score")+
-    stat(S.sent,"Tickets sent","good")+
-    stat(S.walked,"Walked",S.walked?"bad":"")+
-    stat(S.burned,"Burned",S.burned?"bad":"")+
-    stat(S.late,"Sent late",S.late?"bad":"")+
-    stat("×"+S.bestStreak,"Best streak")+
-    stat(S.sent?fmt(avg):"—","Avg ticket time")+
+  const avg=sim.sent?sim.sumTicketTime/sim.sent:0;
+  const total=sim.sent+sim.walked;
+  const acc=total?sim.sent/total:0;
+  let grade="D",word="Rough shift";
+  if(sim.sent>=3&&acc>=.95&&sim.late===0&&sim.burned===0){grade="S";word="Flawless service"}
+  else if(sim.sent>=2&&acc>=.9&&sim.burned<=1){grade="A";word="Solid line cook"}
+  else if(acc>=.7){grade="B";word="Getting there"}
+  else if(sim.sent>0){grade="C";word="Keep drilling"}
+  el(DOM.grade).textContent=grade;
+  el(DOM.grade).classList.toggle("low",grade==="C"||grade==="D");
+  el(DOM.gradeWord).innerHTML=word+'<small>'+DIFF[sim.diff].name+' · '+sim.speed+'× clock</small>';
+  el(DOM.earnLine).textContent="+"+sim.earned+" tips earned · "+tips+" total";
+  const stat=(value,label,cls)=>'<div class="stat"><div class="v '+(cls||"")+'">'+value+'</div><div class="k">'+label+'</div></div>';
+  el(DOM.statGrid).innerHTML=
+    stat(sim.score,"Score")+
+    stat(sim.sent,"Tickets sent",TONE_GOOD)+
+    stat(sim.walked,"Walked",sim.walked?TONE_BAD:"")+
+    stat(sim.burned,"Burned",sim.burned?TONE_BAD:"")+
+    stat(sim.late,"Sent late",sim.late?TONE_BAD:"")+
+    stat("×"+sim.bestStreak,"Best streak")+
+    stat(sim.sent?fmt(avg):"—","Avg ticket time")+
     stat(best,"Best score");
-  let hist=loadJSON("allday_hist",[]);
-  hist.unshift({g,score:S.score,sent:S.sent,walked:S.walked,diff:S.diff,speed:S.speed});
+  let hist=loadJSON(KEY_HIST,[]);
+  hist.unshift({g:grade,score:sim.score,sent:sim.sent,walked:sim.walked,diff:sim.diff,speed:sim.speed});
   hist=hist.slice(0,6);
-  localStorage.setItem("allday_hist",JSON.stringify(hist));
-  el("hist-rows").innerHTML=hist.map((h,i)=>
-    '<div class="hist-row'+(i===0?" now":"")+'"><b>'+h.g+'</b><span>'+DIFF[h.diff].name+' · '+h.speed+'×</span>'+
-    '<span class="hr-n">'+h.sent+' sent'+(h.walked?' · '+h.walked+' walked':'')+'</span><span class="hr-s">'+h.score+'</span></div>'
+  localStorage.setItem(KEY_HIST,JSON.stringify(hist));
+  el(DOM.histRows).innerHTML=hist.map((shiftRow,i)=>
+    '<div class="hist-row'+(i===0?" now":"")+'"><b>'+shiftRow.g+'</b><span>'+DIFF[shiftRow.diff].name+' · '+shiftRow.speed+'×</span>'+
+    '<span class="hr-n">'+shiftRow.sent+' sent'+(shiftRow.walked?' · '+shiftRow.walked+' walked':'')+'</span><span class="hr-s">'+shiftRow.score+'</span></div>'
   ).join("");
-  el("ov-report").classList.remove("hidden");
+  el(DOM.ovReport).classList.remove("hidden");
 }
 
 /* ══════════ START / SHOP / MENU SCREENS ══════════ */
 function buildStart(){
-  const dc=el("diff-cards");dc.innerHTML="";
-  Object.entries(DIFF).forEach(([k,d])=>{
-    const b=document.createElement("button");
-    b.className="diff-card"+(k===chosenDiff?" on":"");
-    b.innerHTML='<span class="d-dot"></span><span><span class="d-name">'+d.name+'</span><div class="d-desc">'+d.desc+' '+d.shiftMin+'-minute service.</div></span>';
-    b.addEventListener("click",()=>{chosenDiff=k;localStorage.setItem("allday_diff",k);buildStart()});
-    dc.appendChild(b);
+  const diffBox=el(DOM.diffCards);diffBox.innerHTML="";
+  Object.entries(DIFF).forEach(([key,diff])=>{
+    const btn=document.createElement("button");
+    btn.className="diff-card"+(key===chosenDiff?" on":"");
+    btn.innerHTML='<span class="d-dot"></span><span><span class="d-name">'+diff.name+'</span><div class="d-desc">'+diff.desc+' '+diff.shiftMin+'-minute service.</div></span>';
+    btn.addEventListener("click",()=>{chosenDiff=key;localStorage.setItem(KEY_DIFF,key);buildStart()});
+    diffBox.appendChild(btn);
   });
-  const sr=el("speed-row");sr.innerHTML="";
-  [1,2,3,4].forEach(x=>{
-    const b=document.createElement("button");
-    b.className="speed-pill"+(x===chosenSpeed?" on":"");
-    b.textContent=x+"×";
-    b.addEventListener("click",()=>{chosenSpeed=x;localStorage.setItem("allday_speed",JSON.stringify(x));buildStart()});
-    sr.appendChild(b);
+  const speedBox=el(DOM.speedRow);speedBox.innerHTML="";
+  [1,2,3,4].forEach(speed=>{
+    const btn=document.createElement("button");
+    btn.className="speed-pill"+(speed===chosenSpeed?" on":"");
+    btn.textContent=speed+"×";
+    btn.addEventListener("click",()=>{chosenSpeed=speed;localStorage.setItem(KEY_SPEED,JSON.stringify(speed));buildStart()});
+    speedBox.appendChild(btn);
   });
-  el("best-line").textContent=(best?"BEST SCORE  "+best+"   ·   ":"")+"TIPS  "+tips;
-  const li=careerAt(xp);
-  el("career-title").textContent=LEVELS[li][1];
-  const nxt=LEVELS[li+1];
-  el("career-xp").textContent=nxt?xp+" / "+nxt[0]+" XP":xp+" XP · MAXED";
-  el("xp-fill").style.width=nxt?Math.round((xp-LEVELS[li][0])/(nxt[0]-LEVELS[li][0])*100)+"%":"100%";
+  el(DOM.bestLine).textContent=(best?"BEST SCORE  "+best+"   ·   ":"")+"TIPS  "+tips;
+  const levelIdx=careerAt(xp);
+  el(DOM.careerTitle).textContent=LEVELS[levelIdx][1];
+  const next=LEVELS[levelIdx+1];
+  el(DOM.careerXp).textContent=next?xp+" / "+next[0]+" XP":xp+" XP · MAXED";
+  el(DOM.xpFill).style.width=next?Math.round((xp-LEVELS[levelIdx][0])/(next[0]-LEVELS[levelIdx][0])*100)+"%":"100%";
 }
 function buildShop(){
-  el("shop-tips").textContent="TIPS  "+tips;
-  const box=el("shop-cards");box.innerHTML="";
+  el(DOM.shopTips).textContent="TIPS  "+tips;
+  const box=el(DOM.shopCards);box.innerHTML="";
   SHOP.forEach(item=>{
     const owned=item.kind==="gear"?gear[item.key]>=item.to:perks[item.key];
     const blocked=item.kind==="gear"&&gear[item.key]<item.to-1;
@@ -1565,7 +1593,7 @@ function buildShop(){
         tips-=item.cost;
         if(item.kind==="gear")gear[item.key]=item.to;else perks[item.key]=true;
         saveMeta();sfx.coin();buzz(20);
-        toast(item.name+" — on the line","good");
+        toast(item.name+" — on the line",TONE_GOOD);
         buildShop();buildStart();
       });
     }
@@ -1574,7 +1602,7 @@ function buildShop(){
   });
 }
 function buildMenuStudy(){
-  const box=el("menu-rows");
+  const box=el(DOM.menuRows);
   const breadedKeys=new Set(Object.values(BREAD_MAP));
   const row=(name,note,time,flip)=>'<div class="menu-row"><span class="m-name">'+name+
     (note?'<span class="m-note">'+note+'</span>':'')+'</span>'+
@@ -1582,57 +1610,57 @@ function buildMenuStudy(){
     (time!=null?'<span class="m-time">'+fmt(time)+'</span>':'')+'</div>';
   let html="";
   html+='<div class="menu-sec">FRYER · 350°</div>';
-  Object.entries(COOK).filter(([,c])=>c.st==="fryer").sort((a,b)=>a[1].sec-b[1].sec).forEach(([k,c])=>{
-    html+=row(c.label,breadedKeys.has(k)?"bread first · "+breadSec()+"s":null,c.sec,null);
+  Object.entries(COOK).filter(([,cook])=>cook.station===ST_FRYER).sort((a,b)=>a[1].sec-b[1].sec).forEach(([key,cook])=>{
+    html+=row(cook.label,breadedKeys.has(key)?"bread first · "+breadSec()+"s":null,cook.sec,null);
   });
   html+='<div class="menu-sec">GRILL</div>';
-  Object.entries(COOK).filter(([,c])=>c.st==="grill").sort((a,b)=>a[1].sec-b[1].sec).forEach(([,c])=>{
-    html+=row(c.label,null,c.sec,c.flip);
+  Object.entries(COOK).filter(([,cook])=>cook.station===ST_GRILL).sort((a,b)=>a[1].sec-b[1].sec).forEach(([,cook])=>{
+    html+=row(cook.label,null,cook.sec,cook.flip);
   });
   html+='<div class="menu-sec">SAUTÉ</div>';
-  Object.entries(COOK).filter(([,c])=>c.st==="saute").forEach(([,c])=>{
-    html+=row(c.label,"start from cooked "+c.needs.map(n=>COOK[n].label.toLowerCase()).join(" or "),c.sec,null);
+  Object.entries(COOK).filter(([,cook])=>cook.station===ST_SAUTE).forEach(([,cook])=>{
+    html+=row(cook.label,"start from cooked "+cook.needs.map(needKey=>COOK[needKey].label.toLowerCase()).join(" or "),cook.sec,null);
   });
   html+='<div class="menu-sec">HOT HOLD · COLD — INSTANT</div>';
-  html+='<div class="menu-row"><span class="m-name">'+SIDES.map(s=>s.name).join(" · ")+'<span class="m-note">sides — plate straight to the ticket</span></span></div>';
-  html+='<div class="menu-row"><span class="m-name">'+COLD.map(c=>c.name).join(" · ")+'<span class="m-note">drinks & desserts — plate straight to the ticket</span></span></div>';
+  html+='<div class="menu-row"><span class="m-name">'+SIDES.map(side=>side.name).join(" · ")+'<span class="m-note">sides — plate straight to the ticket</span></span></div>';
+  html+='<div class="menu-row"><span class="m-name">'+COLD.map(cold=>cold.name).join(" · ")+'<span class="m-note">drinks & desserts — plate straight to the ticket</span></span></div>';
   box.innerHTML=html;
 }
 
 /* ══════════ WIRING ══════════ */
-el("btn-start").addEventListener("click",startShift);
-el("btn-again").addEventListener("click",startShift);
-el("btn-menu2").addEventListener("click",()=>{buildStart();el("ov-report").classList.add("hidden");el("ov-start").classList.remove("hidden")});
-el("btn-end").addEventListener("click",()=>{if(S&&S.running)endShift()});
-el("btn-pause").addEventListener("click",()=>{
-  if(!S||!S.running)return;
-  S.paused=!S.paused;
-  el("pause-veil").classList.toggle("show",S.paused);
-  el("btn-pause").textContent=S.paused?"▶":"II";
-  if(!S.paused)lastT=performance.now();
+el(DOM.btnStart).addEventListener("click",startShift);
+el(DOM.btnAgain).addEventListener("click",startShift);
+el(DOM.btnMenu2).addEventListener("click",()=>{buildStart();el(DOM.ovReport).classList.add("hidden");el(DOM.ovStart).classList.remove("hidden")});
+el(DOM.btnEnd).addEventListener("click",()=>{if(sim&&sim.running)endShift()});
+el(DOM.btnPause).addEventListener("click",()=>{
+  if(!sim||!sim.running)return;
+  sim.paused=!sim.paused;
+  el(DOM.pauseVeil).classList.toggle("show",sim.paused);
+  el(DOM.btnPause).textContent=sim.paused?"▶":"II";
+  if(!sim.paused)lastT=performance.now();
 });
-el("pause-veil").addEventListener("click",()=>{if(!S)return;S.paused=false;el("pause-veil").classList.remove("show");el("btn-pause").textContent="II";lastT=performance.now()});
-el("btn-sound").addEventListener("click",()=>{
-  soundOn=!soundOn;localStorage.setItem("allday_sound",soundOn?"1":"0");
-  el("btn-sound").style.opacity=soundOn?"1":"0.4";
+el(DOM.pauseVeil).addEventListener("click",()=>{if(!sim)return;sim.paused=false;el(DOM.pauseVeil).classList.remove("show");el(DOM.btnPause).textContent="II";lastT=performance.now()});
+el(DOM.btnSound).addEventListener("click",()=>{
+  soundOn=!soundOn;localStorage.setItem(KEY_SOUND,soundOn?"1":"0");
+  el(DOM.btnSound).style.opacity=soundOn?"1":"0.4";
 });
-el("btn-sound").style.opacity=soundOn?"1":"0.4";
-el("hand-chip").addEventListener("click",()=>{
-  if(!S||!S.hand)return;
-  if(S.hand.kind==="cooked"){toast("Don't waste it — window, ticket, or trash","warn");return}
-  if(S.hand.kind==="breaded"){toast("It's breaded — fryer only now","warn");return}
+el(DOM.btnSound).style.opacity=soundOn?"1":"0.4";
+el(DOM.handChip).addEventListener("click",()=>{
+  if(!sim||!sim.hand)return;
+  if(sim.hand.kind===KIND_COOKED){toast("Don't waste it — window, ticket, or trash",TONE_WARN);return}
+  if(sim.hand.kind===KIND_BREADED){toast("It's breaded — fryer only now",TONE_WARN);return}
   setHand(null);
 });
-el("drawer-tab").addEventListener("click",()=>{
-  if(!S||!S.running)return;
-  el("drawer").classList.contains("open")?closeDrawer():openDrawer();
+el(DOM.drawerTab).addEventListener("click",()=>{
+  if(!sim||!sim.running)return;
+  el(DOM.drawer).classList.contains("open")?closeDrawer():openDrawer();
 });
 document.querySelector(".dr-close").addEventListener("click",closeDrawer);
-el("btn-study").addEventListener("click",()=>{buildMenuStudy();el("ov-menu").classList.remove("hidden")});
-el("btn-study-back").addEventListener("click",()=>el("ov-menu").classList.add("hidden"));
-el("btn-shop").addEventListener("click",()=>{buildShop();el("ov-shop").classList.remove("hidden")});
-el("btn-shop2").addEventListener("click",()=>{buildShop();el("ov-shop").classList.remove("hidden")});
-el("btn-shop-back").addEventListener("click",()=>el("ov-shop").classList.add("hidden"));
+el(DOM.btnStudy).addEventListener("click",()=>{buildMenuStudy();el(DOM.ovMenu).classList.remove("hidden")});
+el(DOM.btnStudyBack).addEventListener("click",()=>el(DOM.ovMenu).classList.add("hidden"));
+el(DOM.btnShop).addEventListener("click",()=>{buildShop();el(DOM.ovShop).classList.remove("hidden")});
+el(DOM.btnShop2).addEventListener("click",()=>{buildShop();el(DOM.ovShop).classList.remove("hidden")});
+el(DOM.btnShopBack).addEventListener("click",()=>el(DOM.ovShop).classList.add("hidden"));
 
 buildStart();buildHits();resize();
 requestAnimationFrame(drawScene);
