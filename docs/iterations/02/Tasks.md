@@ -6,9 +6,9 @@ Read [NOTES](NOTES.md) first. Verify every step with `npm test` + `npm run shot`
 
 Split *decide* from *do*; the `tap*` actions stay as the mutation layer.
 
-- [ ] `spawnOrder` → pure `rollOrder(menu, diff, rng)` returning an order object; caller pushes it into `sim`
-- [ ] `tick` → pure per-subsystem steppers (`stepBreading`, `stepCooking`, `stepHolding`, `stepPatience`) that take state and return events; one thin driver applies them and fires sfx/toasts/dirty flags
-- [ ] Eligibility checks out of `tapSlot`/`tapWindow`/`tapTicket` into pure predicates (`canDropOn(hand, station)`, reuse `validTarget`)
+- [x] `spawnOrder` → pure `rollOrder(diffConfig, rng)` returning an unstamped order (`{label,who,type,target,items}`); `spawnOrder` stamps `id`/`num`/`born` and pushes
+- [x] `tick` → pure steppers (`stepBreading`, `stepCooking`, `stepHolding`, `stepPatience`) that mutate sim state and return `EV_*` events; `tick` maps events through `EVENT_EFFECTS` to sfx/toast/buzz/dirty
+- [x] Eligibility into pure predicates: `canDropOn`/`dropDenial`/`startCooking`/`canPlateToWindow` in ACTIONS; `validTarget` and the window glow are now thin wrappers (ticket matching already shared `handKey`/`ticketNeeds`)
 
 ---
 

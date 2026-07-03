@@ -396,6 +396,8 @@
 const ORDER_TYPE_DINE_IN="DINE IN",ORDER_TYPE_TO_GO="TO GO";
 const DIFF_EASY="easy",DIFF_MEDIUM="medium",DIFF_HARD="hard";
 const TONE_GOOD="good",TONE_WARN="warn",TONE_BAD="bad";
+const EV_BREADING_DONE="breading_done",EV_COOK_READY="cook_ready",EV_COOK_BURNT="cook_burnt",
+      EV_WINDOW_DIED="window_died",EV_ORDER_WALKED="order_walked";
 const KIND_ING="ing",KIND_BREADED="breaded",KIND_COOKED="cooked",KIND_SIDE="side",KIND_COLD="cold",
       KIND_COOK="cook",KIND_COOK_CHOICE="cook_choice",KIND_BREADING="bread";
 const STATE_COOKING="cooking",STATE_UP="up",STATE_BURNT="burnt";
@@ -502,6 +504,7 @@ const MENU = [
 ];
 const SIMPLE_IDS=["WINGS_DIN","WINGS_FRIES","BLS_DIN","TENDER_DIN","WINGS_APP","FRITTERS"];
 const COMBO_POOL=["wings_bone","tenders","grilled_chx","crispy_chx","fried_snapper","grilled_snapper","fried_shrimp","grilled_shrimp","cracked_conch","gator_bites"];
+const COMBO_LABEL="Combo · Pick 2",COMBO_TARGET_SEC=780;
 
 const DIFF = {
   [DIFF_EASY]:  {name:"STAGE",desc:"Trailing shift. 1–3 tickets, simple menu, slow pace.",init:1,max:3,gapMin:30,gapMax:50,simple:true,combo:0,shiftMin:20},
@@ -619,25 +622,28 @@ function addSidesTo(items,count){
   while(chosen.length<count){const sideId=pick(SIDE_IDS);if(!chosen.includes(sideId))chosen.push(sideId)}
   chosen.forEach(sideId=>items.push(makeItem(KIND_SIDE,sideId)));
 }
+function rollOrder(diffConfig,rng){
+  if(!diffConfig.simple&&rng()<diffConfig.combo){
+    const pickA=pick(COMBO_POOL),pickB=pick(COMBO_POOL.filter(x=>x!==pickA));
+    const items=[makeItem(KIND_COOK,pickA),makeItem(KIND_COOK,pickB)];
+    addSidesTo(items,2);addSidesTo(items,2);
+    items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
+    return{label:COMBO_LABEL,who:pick(NAMES),type:pick(TYPES),target:COMBO_TARGET_SEC,items};
+  }
+  const pool=diffConfig.simple?MENU.filter(m=>SIMPLE_IDS.includes(m.id)):MENU;
+  const menuItem=pick(pool);
+  const items=[];
+  menuItem.cook.forEach(choice=>items.push(choice.length>1?makeItem(KIND_COOK_CHOICE,null,choice):makeItem(KIND_COOK,choice[0])));
+  if(menuItem.sides)addSidesTo(items,menuItem.sides);
+  if(menuItem.drink&&(menuItem.drink===1||rng()<menuItem.drink))items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
+  if(menuItem.dessert&&rng()<menuItem.dessert)items.push(makeItem(KIND_COLD,pick(COLD_DES)));
+  return{label:menuItem.name,who:pick(NAMES),type:pick(TYPES),target:menuItem.target,items};
+}
 function spawnOrder(){
   const diff=DIFF[sim.diff];
   if(sim.orders.length>=diff.max)return;
-  let ord;
-  if(!diff.simple&&Math.random()<diff.combo){
-    const pickA=pick(COMBO_POOL),pickB=pick(COMBO_POOL.filter(x=>x!==pickA));
-    ord={id:"o"+sim.nextNum,num:sim.nextNum,label:"Combo · Pick 2",who:pick(NAMES),type:pick(TYPES),born:sim.shiftSec,target:780,items:[]};
-    ord.items.push(makeItem(KIND_COOK,pickA),makeItem(KIND_COOK,pickB));
-    addSidesTo(ord.items,2);addSidesTo(ord.items,2);
-    ord.items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
-  }else{
-    const pool=diff.simple?MENU.filter(m=>SIMPLE_IDS.includes(m.id)):MENU;
-    const menuItem=pick(pool);
-    ord={id:"o"+sim.nextNum,num:sim.nextNum,label:menuItem.name,who:pick(NAMES),type:pick(TYPES),born:sim.shiftSec,target:menuItem.target,items:[]};
-    menuItem.cook.forEach(ch=>ord.items.push(ch.length>1?makeItem(KIND_COOK_CHOICE,null,ch):makeItem(KIND_COOK,ch[0])));
-    if(menuItem.sides)addSidesTo(ord.items,menuItem.sides);
-    if(menuItem.drink&&(menuItem.drink===1||Math.random()<menuItem.drink))ord.items.push(makeItem(KIND_COLD,pick(COLD_DRINKS)));
-    if(menuItem.dessert&&Math.random()<menuItem.dessert)ord.items.push(makeItem(KIND_COLD,pick(COLD_DES)));
-  }
+  const ord=rollOrder(diff,Math.random);
+  ord.id="o"+sim.nextNum;ord.num=sim.nextNum;ord.born=sim.shiftSec;
   sim.nextNum++;sim.orders.push(ord);
   ordersDirty=true;sfx.newTicket();
 }
@@ -676,6 +682,38 @@ function handHint(){
 function setHand(hand){sim.hand=hand;renderHand();if(hand)sfx.pick()}
 
 /* ══════════ ACTIONS ══════════ */
+function sauteKeyFor(product){
+  const entry=Object.entries(COOK).find(([,cook])=>cook.station===ST_SAUTE&&cook.needs&&cook.needs.includes(product));
+  return entry?entry[0]:null;
+}
+function canDropOn(hand,slotItem,station){
+  if(!hand||slotItem)return false;
+  if(hand.kind===KIND_ING)return!!PROTEINS.find(p=>p.id===hand.id).direct[station];
+  if(hand.kind===KIND_BREADED)return station===ST_FRYER;
+  if(hand.kind===KIND_COOKED&&station===ST_SAUTE)return!!sauteKeyFor(hand.product);
+  return false;
+}
+function dropDenial(hand,station){
+  if(hand.kind===KIND_ING){
+    const ing=PROTEINS.find(p=>p.id===hand.id);
+    return ing.name+" goes on "+routeLabels(ing.direct," / ");
+  }
+  if(hand.kind===KIND_BREADED)return"Breaded items go in the fryer";
+  if(hand.kind===KIND_COOKED)return station===ST_SAUTE?"No pasta calls for "+COOK[hand.product].label:"Cooked food goes to a ticket, the window, or sauté";
+  return"That doesn't go there";
+}
+function startCooking(hand,station){
+  if(hand.kind===KIND_ING){
+    const key=PROTEINS.find(p=>p.id===hand.id).direct[station];
+    if(station===ST_BREAD)return{kind:KIND_BREADING,id:hand.id,breadKey:key,elapsed:0,done:false};
+    return{kind:KIND_COOK,cookKey:key,elapsed:0,flipped:false,state:STATE_COOKING};
+  }
+  if(hand.kind===KIND_BREADED)return{kind:KIND_COOK,cookKey:BREAD_MAP[hand.id],elapsed:0,flipped:false,state:STATE_COOKING};
+  return{kind:KIND_COOK,cookKey:sauteKeyFor(hand.product),elapsed:0,flipped:false,state:STATE_COOKING};
+}
+function canPlateToWindow(hand,windowItem){
+  return!!hand&&hand.kind===KIND_COOKED&&!windowItem;
+}
 function tapBank(kind,id){
   if(!sim.running||sim.paused)return;
   if(sim.hand&&(sim.hand.kind===KIND_ING||sim.hand.kind===KIND_SIDE||sim.hand.kind===KIND_COLD)&&sim.hand.id===id){setHand(null);return}
@@ -690,27 +728,13 @@ function tapSlot(station,idx){
   if(!item){
     const hand=sim.hand;
     if(!hand)return;
-    if(hand.kind===KIND_ING){
-      const ing=PROTEINS.find(p=>p.id===hand.id);
-      const key=ing.direct[station];
-      if(!key){toast(ing.name+" goes on "+routeLabels(ing.direct," / "),TONE_WARN);sfx.deny();buzz(30);return}
-      if(station===ST_BREAD)slots[idx]={kind:KIND_BREADING,id:hand.id,breadKey:key,elapsed:0,done:false};
-      else slots[idx]={kind:KIND_COOK,cookKey:key,elapsed:0,flipped:false,state:STATE_COOKING};
-      setHand(null);sfx.place();buzz(15);return;
+    if(!canDropOn(hand,item,station)){
+      toast(dropDenial(hand,station),TONE_WARN);sfx.deny();
+      if(hand.kind===KIND_ING)buzz(30);
+      return;
     }
-    if(hand.kind===KIND_BREADED){
-      if(station!==ST_FRYER){toast("Breaded items go in the fryer",TONE_WARN);sfx.deny();return}
-      slots[idx]={kind:KIND_COOK,cookKey:BREAD_MAP[hand.id],elapsed:0,flipped:false,state:STATE_COOKING};
-      setHand(null);sfx.place();buzz(15);return;
-    }
-    if(hand.kind===KIND_COOKED){
-      if(station!==ST_SAUTE){toast("Cooked food goes to a ticket, the window, or sauté",TONE_WARN);sfx.deny();return}
-      const entry=Object.entries(COOK).find(([,cook])=>cook.station===ST_SAUTE&&cook.needs&&cook.needs.includes(hand.product));
-      if(!entry){toast("No pasta calls for "+COOK[hand.product].label,TONE_WARN);sfx.deny();return}
-      slots[idx]={kind:KIND_COOK,cookKey:entry[0],elapsed:0,flipped:false,state:STATE_COOKING};
-      setHand(null);sfx.place();buzz(15);return;
-    }
-    toast("That doesn't go there",TONE_WARN);sfx.deny();return;
+    slots[idx]=startCooking(hand,station);
+    setHand(null);sfx.place();buzz(15);return;
   }
   if(item.kind===KIND_BREADING){
     if(!item.done){toast("Still breading…",TONE_WARN);return}
@@ -742,7 +766,7 @@ function tapSlot(station,idx){
 function tapWindow(idx){
   if(!sim.running||sim.paused)return;
   const windowItem=sim.window[idx];
-  if(sim.hand&&sim.hand.kind===KIND_COOKED&&!windowItem){
+  if(canPlateToWindow(sim.hand,windowItem)){
     sim.window[idx]={product:sim.hand.product,since:sim.shiftSec};
     setHand(null);sfx.place();return;
   }
@@ -805,6 +829,66 @@ function sendOrder(ordId){
 /* ══════════ TICK ══════════ */
 let lastT=performance.now();
 let ordersDirty=false;
+function stepBreading(state,dt,doneSec){
+  const events=[];
+  state.bread.forEach(breadItem=>{
+    if(!breadItem||breadItem.kind!==KIND_BREADING||breadItem.done)return;
+    breadItem.elapsed+=dt;
+    if(breadItem.elapsed>=doneSec){breadItem.done=true;events.push({kind:EV_BREADING_DONE})}
+  });
+  return events;
+}
+function stepCooking(state,dt,holdGraceSec){
+  const events=[];
+  [ST_FRYER,ST_GRILL,ST_SAUTE].forEach(station=>{
+    state[station].forEach(item=>{
+      if(!item||item.kind!==KIND_COOK||item.state===STATE_BURNT)return;
+      const cook=COOK[item.cookKey];
+      item.elapsed+=dt;
+      if(item.state===STATE_COOKING){
+        if(cook.flip&&!item.flipped&&item.elapsed>cook.flip+FLIP_GRACE){
+          item.state=STATE_BURNT;events.push({kind:EV_COOK_BURNT,msg:cook.label+" burned — missed the flip"});
+        }else if((!cook.flip||item.flipped)&&item.elapsed>=cook.sec){
+          item.state=STATE_UP;events.push({kind:EV_COOK_READY});
+        }
+      }else if(item.state===STATE_UP&&item.elapsed>cook.sec+holdGraceSec){
+        item.state=STATE_BURNT;events.push({kind:EV_COOK_BURNT,msg:cook.label+" died in the "+(station===ST_FRYER?"basket":station)});
+      }
+    });
+  });
+  return events;
+}
+function stepHolding(state){
+  const events=[];
+  state.window.forEach((windowItem,i)=>{
+    if(!windowItem)return;
+    if(state.shiftSec-windowItem.since>HOLD_DEAD){
+      state.window[i]=null;
+      state.score=Math.max(0,state.score-15);
+      events.push({kind:EV_WINDOW_DIED,msg:COOK[windowItem.product].label+" died in the window  −15"});
+    }
+  });
+  return events;
+}
+function stepPatience(state){
+  const events=[];
+  for(let i=state.orders.length-1;i>=0;i--){
+    const order=state.orders[i];
+    if(state.shiftSec-order.born>order.target+WALK_AFTER){
+      state.orders.splice(i,1);
+      state.walked++;state.streak=0;state.score=Math.max(0,state.score-75);
+      events.push({kind:EV_ORDER_WALKED,msg:"#"+order.num+" walked  −75"});
+    }
+  }
+  return events;
+}
+const EVENT_EFFECTS={
+  [EV_BREADING_DONE]:()=>{sfx.up();buzz(20)},
+  [EV_COOK_READY]:()=>{sfx.up();buzz(25)},
+  [EV_COOK_BURNT]:ev=>{toast(ev.msg,TONE_BAD);sfx.burn();buzz([50,50,50])},
+  [EV_WINDOW_DIED]:ev=>{toast(ev.msg,TONE_BAD);sfx.burn()},
+  [EV_ORDER_WALKED]:ev=>{toast(ev.msg,TONE_BAD);sfx.walk();buzz([60,40,60]);ordersDirty=true},
+};
 function tick(){
   const now=performance.now();
   const real=(now-lastT)/1000;lastT=now;
@@ -812,44 +896,13 @@ function tick(){
   const dt=Math.min(real,0.5)*sim.speed;
   sim.shiftSec+=dt;
 
-  sim.bread.forEach(breadItem=>{
-    if(!breadItem||breadItem.kind!==KIND_BREADING||breadItem.done)return;
-    breadItem.elapsed+=dt;
-    if(breadItem.elapsed>=breadSec()){breadItem.done=true;sfx.up();buzz(20)}
-  });
-  [ST_FRYER,ST_GRILL,ST_SAUTE].forEach(station=>{
-    sim[station].forEach(item=>{
-      if(!item||item.kind!==KIND_COOK||item.state===STATE_BURNT)return;
-      const cook=COOK[item.cookKey];
-      item.elapsed+=dt;
-      if(item.state===STATE_COOKING){
-        if(cook.flip&&!item.flipped&&item.elapsed>cook.flip+FLIP_GRACE){
-          item.state=STATE_BURNT;toast(cook.label+" burned — missed the flip",TONE_BAD);sfx.burn();buzz([50,50,50]);
-        }else if((!cook.flip||item.flipped)&&item.elapsed>=cook.sec){
-          item.state=STATE_UP;sfx.up();buzz(25);
-        }
-      }else if(item.state===STATE_UP&&item.elapsed>cook.sec+graceSec()){
-        item.state=STATE_BURNT;toast(cook.label+" died in the "+(station===ST_FRYER?"basket":station),TONE_BAD);sfx.burn();buzz([50,50,50]);
-      }
-    });
-  });
-  sim.window.forEach((windowItem,i)=>{
-    if(!windowItem)return;
-    if(sim.shiftSec-windowItem.since>HOLD_DEAD){
-      sim.window[i]=null;
-      sim.score=Math.max(0,sim.score-15);
-      toast(COOK[windowItem.product].label+" died in the window  −15",TONE_BAD);sfx.burn();
-    }
-  });
-  for(let i=sim.orders.length-1;i>=0;i--){
-    const order=sim.orders[i];
-    if(sim.shiftSec-order.born>order.target+WALK_AFTER){
-      sim.orders.splice(i,1);
-      sim.walked++;sim.streak=0;sim.score=Math.max(0,sim.score-75);
-      toast("#"+order.num+" walked  −75",TONE_BAD);sfx.walk();buzz([60,40,60]);
-      ordersDirty=true;
-    }
-  }
+  const events=[
+    ...stepBreading(sim,dt,breadSec()),
+    ...stepCooking(sim,dt,graceSec()),
+    ...stepHolding(sim),
+    ...stepPatience(sim),
+  ];
+  events.forEach(ev=>EVENT_EFFECTS[ev.kind](ev));
   if(!sim.lastCall&&sim.shiftSec>=sim.shiftLen-120){
     sim.lastCall=true;
     toast("LAST CALL — clear the rail",TONE_WARN);sfx.walk();
@@ -1063,12 +1116,7 @@ function targetGlow(cx,cy,w,h,t,round){
 }
 
 function validTarget(station,idx){
-  const hand=sim&&sim.hand;
-  if(!hand||sim[station][idx])return false;
-  if(hand.kind===KIND_ING){const ing=PROTEINS.find(p=>p.id===hand.id);return!!ing.direct[station]}
-  if(hand.kind===KIND_BREADED)return station===ST_FRYER;
-  if(hand.kind===KIND_COOKED&&station===ST_SAUTE)return Object.values(COOK).some(c=>c.station===ST_SAUTE&&c.needs&&c.needs.includes(hand.product));
-  return false;
+  return!!sim&&canDropOn(sim.hand,sim[station][idx],station);
 }
 
 let frameT=0,lastFrame=performance.now();
@@ -1131,7 +1179,7 @@ function drawScene(){
       if(!reduceMotion&&Math.random()<.1)spawnPart("steam",cx,cy-14);
       const age=sim.shiftSec-held.since;
       if(age>HOLD_WARN)timerPill(cx,cy-34,fmt(HOLD_DEAD-age),null,"#d9a13b",false,t);
-    }else if(sim&&sim.hand&&sim.hand.kind===KIND_COOKED){
+    }else if(sim&&canPlateToWindow(sim.hand,held)){
       targetGlow(cx,cy+4,96,50,t,false);
     }
   }
