@@ -18,10 +18,10 @@ docs (seeded by id: 2) and mirrored here only so this repo records when the port
 
 # id: 2 — Birth the new repo (M1)
 
-- [ ] `git init` `all-day` (sibling of `cook-trainer`); Vite + Phaser 3.x + Vitest skeleton boots a blank scene, zero console errors
-- [ ] `all-day/CLAUDE.md` written from [PORT](PORT.md) — destination only, invariants, ratchet rule, house rules
-- [ ] `all-day/START.md` + `docs/iterations/01/Tasks.md` seeded with M2–M5
-- [ ] Screenshot harness against the Vite dev server (shot.js pattern, rewritten not copied); exits 1 on page errors
+- [x] `git init` `all-day` (sibling of `cook-trainer`); Vite + Phaser 3.x + Vitest skeleton boots a blank scene, zero console errors
+- [x] `all-day/CLAUDE.md` written from [PORT](PORT.md) — destination only, invariants, ratchet rule, house rules
+- [x] `all-day/START.md` + `docs/iterations/01/Tasks.md` seeded with M2–M5
+- [x] Screenshot harness against the Vite dev server (shot.js pattern, rewritten not copied); exits 1 on page errors
 
 ---
 
