@@ -794,8 +794,7 @@ function tapTicket(ordId){
   const need=ticketNeeds(ord,key);
   if(!need){
     toast("#"+ord.num+" doesn't call for "+handLabel(),TONE_WARN);sfx.deny();buzz(30);
-    const card=document.querySelector(orderCardSelector(ordId));
-    if(card){card.classList.remove("reject");void card.offsetWidth;card.classList.add("reject")}
+    flashTicketReject(ordId);
     return;
   }
   need.done=true;setHand(null);
@@ -817,12 +816,10 @@ function sendOrder(ordId){
   sim.earned+=coins;tips+=coins;xp+=pts;saveMeta();
   if(sim.score>best){best=sim.score;localStorage.setItem(KEY_BEST,JSON.stringify(best))}
   toast(msg,kind);sfx.send();sfx.coin();buzz([20,30,20]);
-  const card=document.querySelector(orderCardSelector(ordId));
-  const finish=()=>{
+  bumpTicketThen(ordId,()=>{
     const j=sim.orders.findIndex(o=>o.id===ordId);
     if(j>=0){sim.orders.splice(j,1);ordersDirty=true;renderTickets()}
-  };
-  if(card){card.classList.add("bump");setTimeout(finish,300)}else finish();
+  });
   renderHUD();
 }
 
@@ -1466,6 +1463,14 @@ function markTicketTargets(){
     const order=sim.orders.find(x=>x.id===card.dataset[DATASET_ORDER_ID]);
     card.classList.toggle("match",!!(key&&order&&ticketNeeds(order,key)));
   });
+}
+function flashTicketReject(ordId){
+  const card=document.querySelector(orderCardSelector(ordId));
+  if(card){card.classList.remove("reject");void card.offsetWidth;card.classList.add("reject")}
+}
+function bumpTicketThen(ordId,onGone){
+  const card=document.querySelector(orderCardSelector(ordId));
+  if(card){card.classList.add("bump");setTimeout(onGone,300)}else onGone();
 }
 function renderHand(){
   const chip=el(DOM.handChip),hint=el(DOM.handHint);

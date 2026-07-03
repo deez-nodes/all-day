@@ -14,9 +14,9 @@ Split *decide* from *do*; the `tap*` actions stay as the mutation layer.
 
 # id: 2 — Section boundaries ([01/PLAN](../01/PLAN.md) group D)
 
-- [ ] Audit that every function sits in the right banner section
-- [ ] No DATA/ACTIONS/TICK code touches DOM or canvas directly; route violations through the render layer
-- [ ] Decide the fate of section-banner comments vs the No Comments rule (see NOTES)
+- [x] Audit that every function sits in the right banner section — clean; `el`/`orderCardSelector` stay with the generic helpers/CONSTANTS (needed before DOM UI loads)
+- [x] No DATA/ACTIONS/TICK code touches DOM or canvas directly — two violations found and routed: `tapTicket` reject flash → `flashTicketReject`, `sendOrder` card bump → `bumpTicketThen` (both in DOM UI)
+- [x] Banner comments stay: they are structural navigation for the single file, not explanation, and they become module boundaries at the port ([03/PORT](../03/PORT.md) M2) — the No Comments rule targets explanatory comments
 
 ---
 
