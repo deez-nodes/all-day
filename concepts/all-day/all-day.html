@@ -1,0 +1,1639 @@
+<title>ALL DAY — Line Trainer</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<style>
+  :root{
+    --bg:#0b0d0e; --panel:#171b1e; --panel2:#1e2429; --line:#2a3138; --line-hi:#39424a;
+    --ink:#ece7df; --mut:#8d959c; --dim:#5c646b;
+    --brass:#e8933a; --brass-hi:#ffb45e; --brass-dk:#8a5620;
+    --ok:#4fa870; --warn:#d9a13b; --late:#cf4b3f; --late-hi:#e86a5e;
+    --paper:#f5f1e4; --paper-ink:#23252a; --paper-dim:#6b6d66;
+    --disp:"Archivo Narrow","Arial Narrow","AvenirNextCondensed-Bold","Roboto Condensed","Segoe UI",system-ui,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono","SF Mono","Roboto Mono",Menlo,Consolas,monospace;
+    --body:system-ui,"Segoe UI",Roboto,sans-serif;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;padding:0;background:var(--bg);overscroll-behavior:none;height:100%}
+  body{font-family:var(--body);color:var(--ink);-webkit-user-select:none;user-select:none;touch-action:manipulation;overflow:hidden}
+  button{font:inherit;color:inherit;background:none;border:none;padding:0;cursor:pointer}
+  button:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+
+  #stage{position:fixed;inset:0;overflow:hidden}
+  #scene{position:absolute;inset:0;display:block}
+
+  /* ── HUD strip ───────────────────────────────────── */
+  #hud{
+    position:absolute;top:0;left:0;right:0;height:36px;z-index:20;
+    display:flex;align-items:center;gap:12px;padding:0 10px 0 12px;
+    background:linear-gradient(rgba(9,11,12,.92),rgba(9,11,12,.75));
+    border-bottom:1px solid rgba(42,49,56,.6);
+  }
+  .wordmark{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.14em;color:var(--brass);white-space:nowrap}
+  #hud .day{font-family:var(--disp);font-size:10px;letter-spacing:.12em;color:var(--dim);white-space:nowrap}
+  #hud .clock{font-family:var(--mono);font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums}
+  #hud .spacer{flex:1}
+  #score{font-family:var(--mono);font-size:15px;font-weight:700;font-variant-numeric:tabular-nums}
+  #streak{font-size:9px;letter-spacing:.1em;color:var(--brass)}
+  #tips{font-family:var(--mono);font-size:12px;color:var(--brass-hi);font-variant-numeric:tabular-nums}
+  #tips::before{content:"TIPS ";font-family:var(--disp);font-size:9px;color:var(--dim);letter-spacing:.12em}
+  .hud-btn{
+    width:28px;height:28px;border-radius:7px;border:1px solid var(--line);
+    background:rgba(30,36,41,.8);display:grid;place-items:center;color:var(--mut);font-size:12px;flex:0 0 auto;
+  }
+  .hud-btn.end{color:var(--late-hi);font-family:var(--disp);font-size:9px;letter-spacing:.08em;width:auto;padding:0 8px}
+
+  /* ── TICKET RAIL — thermal paper ─────────────────── */
+  #rail{
+    position:absolute;top:36px;left:0;right:0;height:110px;z-index:15;
+    display:flex;gap:10px;overflow-x:auto;overflow-y:hidden;padding:4px 12px 0;
+    scrollbar-width:none;align-items:flex-start;pointer-events:auto;
+  }
+  #rail::-webkit-scrollbar{display:none}
+  .ticket{
+    flex:0 0 140px;height:102px;position:relative;
+    background:var(--paper);color:var(--paper-ink);border-radius:2px 2px 4px 4px;
+    box-shadow:0 6px 14px rgba(0,0,0,.55);
+    display:flex;flex-direction:column;overflow:hidden;
+    transition:transform .12s,box-shadow .12s;transform:rotate(var(--tilt,0deg));
+  }
+  .ticket::before{ /* rail clip */
+    content:"";position:absolute;top:-1px;left:50%;transform:translateX(-50%);
+    width:26px;height:5px;border-radius:0 0 3px 3px;background:#454c52;z-index:3;
+  }
+  .ticket.match{box-shadow:0 0 0 2px var(--brass),0 8px 18px rgba(232,147,58,.3);transform:rotate(0) translateY(2px)}
+  .ticket.reject{animation:shake .3s}
+  .ticket.bump{animation:bump .34s ease-in forwards}
+  @keyframes shake{20%{transform:translateX(-4px)}40%{transform:translateX(4px)}60%{transform:translateX(-3px)}80%{transform:translateX(2px)}}
+  @keyframes bump{to{transform:translateY(-90px);opacity:0}}
+  @keyframes dealin{from{transform:translateY(-16px) rotate(var(--tilt,0deg));opacity:0}}
+  .ticket.fresh{animation:dealin .3s ease-out}
+  .t-head{
+    display:flex;align-items:baseline;gap:5px;padding:2px 7px;
+    font-family:var(--mono);font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;
+    border-bottom:1px dashed #b9b4a2;
+  }
+  .t-head .t-age{margin-left:auto}
+  .ticket[data-age="ok"] .t-age{color:#2c6e46}
+  .ticket[data-age="warn"] .t-age{color:#9a6b10}
+  .ticket[data-age="late"] .t-age{color:var(--late);animation:latepulse 1s infinite}
+  .ticket[data-age="late"]{--tilt:0deg;box-shadow:0 0 0 2px var(--late),0 6px 14px rgba(0,0,0,.55)}
+  .ticket.match[data-age="late"]{box-shadow:0 0 0 2px var(--brass),0 8px 18px rgba(232,147,58,.3)}
+  @keyframes latepulse{50%{opacity:.4}}
+  .t-head .t-type{font-size:8px;letter-spacing:.06em;color:var(--paper-dim)}
+  .t-meal{padding:2px 7px 0;font-size:8px;letter-spacing:.08em;color:var(--paper-dim);text-transform:uppercase;font-family:var(--mono);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-items{flex:1;overflow-y:auto;padding:1px 7px 3px;font-family:var(--mono);font-size:10px;line-height:1.45;scrollbar-width:none}
+  .t-items::-webkit-scrollbar{display:none}
+  .t-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .t-line.side{color:#55584f;padding-left:9px;font-size:10px}
+  .t-line.done{color:#a9a494;text-decoration:line-through}
+  .t-line.done::after{content:" ✓";color:#2c6e46;text-decoration:none}
+  .t-send{
+    margin:0 6px 4px;padding:3.5px 0;border-radius:3px;text-align:center;
+    font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:.16em;
+    background:var(--paper-ink);color:var(--paper);
+  }
+  .ghost-ticket{
+    flex:0 0 74px;height:102px;border:1.5px dashed rgba(245,241,228,.22);border-radius:4px;
+    display:grid;place-items:center;color:rgba(245,241,228,.4);font-family:var(--mono);
+    font-size:9.5px;text-align:center;line-height:1.6;
+  }
+
+  /* ── HAND PILL ───────────────────────────────────── */
+  #handbar{
+    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);z-index:20;
+    display:flex;align-items:center;gap:8px;max-width:92vw;
+  }
+  #hand-chip{
+    display:none;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;
+    background:var(--brass);color:#1c1204;font-family:var(--disp);font-weight:700;
+    font-size:12px;letter-spacing:.05em;box-shadow:0 3px 12px rgba(232,147,58,.4);white-space:nowrap;
+  }
+  #hand-chip.show{display:flex;animation:pop .18s ease-out}
+  @keyframes pop{from{transform:scale(.7)}}
+  #hand-hint{
+    font-size:10.5px;color:var(--mut);background:rgba(9,11,12,.8);border:1px solid var(--line);
+    border-radius:14px;padding:5px 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60vw;
+  }
+
+  /* ── LOWBOY DRAWER ──────────────────────────────── */
+  #drawer-tab{
+    position:absolute;bottom:12px;left:12px;z-index:20;
+    padding:7px 14px;border-radius:8px;border:1px solid var(--line-hi);
+    background:rgba(23,27,30,.9);font-family:var(--disp);font-weight:700;
+    font-size:11px;letter-spacing:.16em;color:var(--brass-hi);
+  }
+  #drawer{
+    position:absolute;left:0;right:0;bottom:0;z-index:30;max-height:56%;
+    background:linear-gradient(#1c2126,#14181b);border-top:2px solid var(--line-hi);
+    border-radius:14px 14px 0 0;transform:translateY(105%);transition:transform .22s ease-out;
+    display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px);
+    box-shadow:0 -12px 40px rgba(0,0,0,.6);
+  }
+  #drawer.open{transform:none}
+  .dr-head{display:flex;align-items:center;padding:8px 14px 2px}
+  .dr-head .dr-title{font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--dim)}
+  .dr-close{margin-left:auto;color:var(--mut);font-size:16px;padding:2px 8px}
+  .bank-row{display:flex;gap:7px;overflow-x:auto;padding:9px 14px 7px;scrollbar-width:none}
+  .bank-row::-webkit-scrollbar{display:none}
+  .row-label{font-family:var(--disp);font-size:9px;font-weight:700;letter-spacing:.18em;color:var(--dim);padding:4px 14px 0}
+  .chip{
+    position:relative;flex:0 0 auto;min-width:78px;padding:8px 10px 7px;border-radius:8px;
+    border:1px solid var(--line);background:linear-gradient(#242a30,#1a1f24);
+    display:flex;flex-direction:column;gap:2px;align-items:flex-start;
+  }
+  .chip:active{transform:scale(.96)}
+  .chip.held{border-color:var(--brass);box-shadow:0 0 0 1px var(--brass)}
+  .chip .c-name{font-family:var(--disp);font-weight:700;font-size:11px;letter-spacing:.03em;line-height:1.15;text-transform:uppercase;color:var(--ink)}
+  .chip .c-route{font-size:8px;letter-spacing:.1em;color:var(--dim);font-family:var(--mono)}
+  .chip.cold-chip .c-name{color:#b9c4cc}
+  .badge{
+    position:absolute;top:-6px;right:-5px;min-width:17px;height:17px;border-radius:9px;
+    background:var(--brass);color:#1c1204;font-family:var(--mono);font-size:10px;font-weight:700;
+    display:none;place-items:center;padding:0 4px;
+  }
+  .badge.on{display:grid}
+
+  /* ── TOASTS ──────────────────────────────────────── */
+  #toasts{position:absolute;top:150px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:5px;z-index:40;pointer-events:none}
+  .toast{
+    padding:5px 14px;border-radius:16px;font-size:11.5px;font-weight:600;
+    background:#22282d;color:var(--ink);border:1px solid var(--line-hi);
+    box-shadow:0 4px 14px rgba(0,0,0,.5);animation:toastin .2s ease-out;max-width:85%;
+  }
+  .toast.good{background:#12281b;border-color:#2c5c40;color:#8fd6ab}
+  .toast.bad{background:#2c1512;border-color:#6b322b;color:#f0a094}
+  .toast.warn{background:#2a2211;border-color:#6b5526;color:#e8c477}
+  @keyframes toastin{from{transform:translateY(-8px);opacity:0}}
+  .toast.out{opacity:0;transition:opacity .3s}
+
+  /* ── OVERLAYS ────────────────────────────────────── */
+  .overlay{
+    position:absolute;inset:0;z-index:50;background:
+      radial-gradient(120% 80% at 50% 0%,rgba(232,147,58,.08),transparent 55%),
+      linear-gradient(#0b0d0f 0%,#0e1113 100%);
+    display:flex;flex-direction:column;overflow-y:auto;align-items:center;
+    padding:calc(env(safe-area-inset-top,0px) + 22px) 22px calc(env(safe-area-inset-bottom,0px) + 22px);
+  }
+  .overlay.hidden{display:none}
+  .ov-inner{width:100%;max-width:560px}
+  .ov-mark{font-family:var(--disp);font-weight:700;font-size:44px;letter-spacing:.1em;color:var(--ink);line-height:.95}
+  .ov-mark em{font-style:normal;color:var(--brass)}
+  .ov-sub{font-size:12.5px;color:var(--mut);margin:10px 0 4px;line-height:1.55;max-width:44ch}
+  .ov-best{font-family:var(--mono);font-size:11px;color:var(--dim);margin-bottom:10px}
+  .career-line{
+    display:flex;align-items:center;gap:10px;margin:8px 0 2px;padding:9px 13px;
+    border:1px solid var(--line);border-radius:9px;background:var(--panel);
+  }
+  .career-line .cl-title{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.1em;color:var(--brass-hi)}
+  .career-line .cl-xp{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--dim)}
+  .xpbar{height:3px;border-radius:2px;background:var(--line);overflow:hidden;margin-top:6px}
+  .xpbar i{display:block;height:100%;background:var(--brass);border-radius:2px}
+  .ov-label{font-family:var(--disp);font-size:10px;font-weight:700;letter-spacing:.22em;color:var(--dim);margin:14px 0 8px}
+  .diff-card{
+    width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;
+    background:var(--panel);padding:10px 14px;margin-bottom:7px;
+    display:flex;align-items:center;gap:12px;
+  }
+  .diff-card.on{border-color:var(--brass);background:#1e1a14;box-shadow:0 0 0 1px var(--brass)}
+  .diff-card .d-name{font-family:var(--disp);font-weight:700;font-size:13.5px;letter-spacing:.08em}
+  .diff-card .d-desc{font-size:10.5px;color:var(--mut);margin-top:2px;line-height:1.4}
+  .diff-card .d-dot{width:8px;height:8px;border-radius:50%;background:var(--line-hi);flex:0 0 auto}
+  .diff-card.on .d-dot{background:var(--brass)}
+  .speed-row{display:flex;gap:6px}
+  .speed-pill{flex:1;padding:7px 0;border-radius:8px;border:1px solid var(--line);background:var(--panel);font-family:var(--mono);font-size:12px;color:var(--mut);text-align:center}
+  .speed-pill.on{border-color:var(--brass);color:var(--brass-hi);background:#1e1a14}
+  .speed-note{font-size:10px;color:var(--dim);margin-top:6px}
+  .cta{
+    margin-top:18px;padding:14px 0;border-radius:10px;width:100%;
+    background:linear-gradient(#f3a24a,#dd8626);color:#1c1204;
+    font-family:var(--disp);font-weight:700;font-size:15px;letter-spacing:.2em;
+    box-shadow:0 3px 0 var(--brass-dk),0 8px 24px rgba(232,147,58,.25);text-align:center;
+  }
+  .cta:active{transform:translateY(2px);box-shadow:0 1px 0 var(--brass-dk)}
+  .btn-ghost{
+    padding:12px 0;border-radius:10px;border:1px solid var(--line-hi);
+    font-family:var(--disp);font-weight:700;font-size:12px;letter-spacing:.14em;color:var(--mut);text-align:center;
+  }
+  .how{margin-top:16px;font-size:10.5px;color:var(--dim);line-height:1.7}
+  .how b{color:var(--mut);font-weight:600}
+  .ov-row{display:flex;gap:8px;margin-top:16px}
+  .ov-row .btn-ghost{flex:1}
+  .ov-row .cta{flex:1.4;margin-top:0;padding:12px 0;font-size:13px}
+
+  .grade-wrap{display:flex;align-items:center;gap:18px;margin:8px 0 4px}
+  .grade{
+    width:80px;height:80px;border-radius:50%;display:grid;place-items:center;flex:0 0 auto;
+    font-family:var(--disp);font-weight:700;font-size:40px;
+    border:3px solid var(--brass);color:var(--brass-hi);
+    box-shadow:0 0 30px rgba(232,147,58,.25),inset 0 0 18px rgba(232,147,58,.12);
+  }
+  .grade.low{border-color:var(--line-hi);color:var(--mut);box-shadow:none}
+  .grade-word{font-family:var(--disp);font-weight:700;font-size:17px;letter-spacing:.1em}
+  .grade-word small{display:block;font-family:var(--body);font-weight:400;font-size:11px;color:var(--mut);letter-spacing:0;margin-top:3px}
+  .earn-line{font-family:var(--mono);font-size:12px;color:var(--brass-hi);margin:6px 0 0}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+  @media (max-width:560px){.stat-grid{grid-template-columns:1fr 1fr}}
+  .stat{border:1px solid var(--line);border-radius:9px;background:var(--panel);padding:9px 11px}
+  .stat .v{font-family:var(--mono);font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+  .stat .k{font-size:9px;letter-spacing:.12em;color:var(--dim);text-transform:uppercase;font-family:var(--disp);font-weight:700;margin-top:2px}
+  .stat .v.good{color:var(--ok)} .stat .v.bad{color:var(--late-hi)}
+  .hist-row{
+    display:flex;align-items:center;gap:10px;padding:6px 12px;border:1px solid var(--line);
+    border-radius:8px;margin-bottom:5px;background:var(--panel);
+    font-family:var(--mono);font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums;
+  }
+  .hist-row.now{border-color:var(--line-hi);color:var(--ink)}
+  .hist-row b{color:var(--brass-hi);font-family:var(--disp);font-size:13px;width:14px}
+  .hist-row .hr-n{margin-left:auto}
+  .hist-row .hr-s{font-weight:700;color:var(--ink);min-width:38px;text-align:right}
+
+  /* shop */
+  .shop-card{
+    display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+    border:1px solid var(--line);border-radius:10px;background:var(--panel);
+    padding:10px 13px;margin-bottom:7px;
+  }
+  .shop-card.owned{opacity:.45}
+  .shop-card .s-name{font-family:var(--disp);font-weight:700;font-size:13px;letter-spacing:.06em}
+  .shop-card .s-desc{font-size:10.5px;color:var(--mut);margin-top:2px;line-height:1.35}
+  .buy{
+    margin-left:auto;flex:0 0 auto;padding:7px 13px;border-radius:8px;
+    background:var(--brass);color:#1c1204;font-family:var(--disp);font-weight:700;
+    font-size:11px;letter-spacing:.08em;box-shadow:0 2px 0 var(--brass-dk);
+  }
+  .buy:disabled{background:var(--line);color:var(--dim);box-shadow:none}
+  .buy.owned-tag{background:none;color:var(--ok);box-shadow:none;padding-right:0}
+
+  /* menu study */
+  .menu-sec{font-family:var(--disp);font-size:11px;font-weight:700;letter-spacing:.2em;color:var(--brass);margin:14px 0 6px}
+  .menu-row{display:flex;align-items:baseline;gap:8px;padding:6px 2px;border-bottom:1px solid var(--line);font-size:12px}
+  .menu-row .m-name{flex:1;color:var(--ink)}
+  .menu-row .m-note{font-size:9.5px;color:var(--dim);display:block}
+  .menu-row .m-time{font-family:var(--mono);font-variant-numeric:tabular-nums;color:var(--mut)}
+  .menu-row .m-flip{font-family:var(--mono);font-size:10px;color:var(--warn)}
+
+  #pause-veil{position:absolute;inset:0;z-index:45;background:rgba(9,11,12,.78);backdrop-filter:blur(3px);display:none;place-items:center}
+  #pause-veil.show{display:grid}
+  #pause-veil .p-word{font-family:var(--disp);font-weight:700;font-size:30px;letter-spacing:.3em;color:var(--mut)}
+
+  #rotate{
+    position:absolute;inset:0;z-index:60;background:#0b0d0e;display:none;
+    flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:30px;
+  }
+  #rotate.show{display:flex}
+  #rotate .r-icon{font-size:40px;color:var(--brass);animation:rot 2s infinite}
+  @keyframes rot{0%,60%,100%{transform:rotate(0)}20%,40%{transform:rotate(90deg)}}
+  #rotate p{color:var(--mut);font-size:13px;max-width:26ch;line-height:1.6}
+  @media (prefers-reduced-motion:reduce){
+    #rotate .r-icon,.ticket[data-age="late"] .t-age{animation:none}
+  }
+</style>
+
+<div id="stage">
+  <canvas id="scene"></canvas>
+
+  <div id="hud">
+    <div class="wordmark">ALL DAY</div>
+    <div class="day" id="day-line">DAY 1</div>
+    <div class="clock" id="clock">00:00</div>
+    <div class="spacer"></div>
+    <div id="streak"></div>
+    <div id="score">0</div>
+    <div id="tips">0</div>
+    <button class="hud-btn" id="btn-sound" aria-label="Toggle sound">♪</button>
+    <button class="hud-btn" id="btn-pause" aria-label="Pause">II</button>
+    <button class="hud-btn end" id="btn-end">END</button>
+  </div>
+
+  <div id="rail"></div>
+
+  <div id="handbar">
+    <button id="hand-chip"></button>
+    <span id="hand-hint">Open the LOWBOY, or tap the counter, to grab food.</span>
+  </div>
+  <button id="drawer-tab">LOWBOY ▲</button>
+
+  <div id="drawer">
+    <div class="dr-head"><span class="dr-title">LOWBOY — WALK-IN STOCK</span><button class="dr-close" aria-label="Close">✕</button></div>
+    <div class="row-label">PROTEINS — RAW</div>
+    <div class="bank-row" id="bank-proteins"></div>
+    <div class="row-label">SIDES · COLD — PLATE STRAIGHT TO TICKET</div>
+    <div class="bank-row" id="bank-instant"></div>
+  </div>
+
+  <div id="toasts"></div>
+  <div id="pause-veil"><div class="p-word">PAUSED</div></div>
+  <div id="rotate"><div class="r-icon">⟳</div><p><b>Turn your phone sideways.</b><br>The line runs wide — like the real one.</p></div>
+
+  <!-- START -->
+  <div class="overlay" id="ov-start"><div class="ov-inner">
+    <div class="ov-mark">ALL <em>DAY</em></div>
+    <p class="ov-sub">Run a real kitchen line. Read the tickets, work the stations, make your times — then spend your tips building out the line.</p>
+    <div class="ov-best" id="best-line"></div>
+    <div class="career-line">
+      <span class="cl-title" id="career-title">DISH PIT</span>
+      <span class="cl-xp" id="career-xp"></span>
+    </div>
+    <div class="xpbar"><i id="xp-fill" style="width:0%"></i></div>
+    <div class="ov-label">SHIFT</div>
+    <div id="diff-cards"></div>
+    <div class="ov-label">CLOCK SPEED</div>
+    <div class="speed-row" id="speed-row"></div>
+    <div class="speed-note">Cook times are true to the menu. 3× keeps a 10-minute wing drop at a playable pace.</div>
+    <button class="cta" id="btn-start">CLOCK IN</button>
+    <div class="ov-row" style="margin-top:8px">
+      <button class="btn-ghost" id="btn-study">STUDY THE MENU</button>
+      <button class="btn-ghost" id="btn-shop">UPGRADE THE LINE</button>
+    </div>
+    <div class="how">
+      <b>How it runs:</b> tap the lowboy for raw food, then tap a glowing station in the kitchen. Breaded items take a pass through the breading table first.
+      Grill items flash <b>FLIP</b> halfway — miss it and they burn. When food is up, grab it and tap the ticket it belongs to, or hold it under the pass lamps.
+      <b>SEND</b> a finished ticket to bump it.
+    </div>
+  </div></div>
+
+  <!-- MENU STUDY -->
+  <div class="overlay hidden" id="ov-menu"><div class="ov-inner">
+    <div class="ov-mark" style="font-size:28px">THE <em>MENU</em></div>
+    <p class="ov-sub">Every item, its station, and its clock. Flip items burn 60s after a missed flip; everything dies 60s after it's up.</p>
+    <div id="menu-rows"></div>
+    <button class="cta" id="btn-study-back" style="margin-top:16px">BACK</button>
+  </div></div>
+
+  <!-- SHOP -->
+  <div class="overlay hidden" id="ov-shop"><div class="ov-inner">
+    <div class="ov-mark" style="font-size:28px">THE <em>LINE</em></div>
+    <p class="ov-sub">Build out your kitchen with tips. New equipment shows up on the line next shift.</p>
+    <div class="ov-best" id="shop-tips"></div>
+    <div id="shop-cards"></div>
+    <button class="cta" id="btn-shop-back" style="margin-top:14px">BACK</button>
+  </div></div>
+
+  <!-- REPORT -->
+  <div class="overlay hidden" id="ov-report"><div class="ov-inner">
+    <div class="ov-mark" style="font-size:28px">SHIFT <em>REPORT</em></div>
+    <div class="grade-wrap">
+      <div class="grade" id="grade">A</div>
+      <div>
+        <div class="grade-word" id="grade-word"></div>
+        <div class="earn-line" id="earn-line"></div>
+      </div>
+    </div>
+    <div class="stat-grid" id="stat-grid"></div>
+    <div class="ov-label">RECENT SHIFTS</div>
+    <div id="hist-rows"></div>
+    <div class="ov-row">
+      <button class="btn-ghost" id="btn-menu2">CHANGE SHIFT</button>
+      <button class="btn-ghost" id="btn-shop2">UPGRADE</button>
+      <button class="cta" id="btn-again">RUN IT BACK</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+"use strict";
+/* ══════════ DATA ══════════ */
+const COOK = {
+  wings_bone:{sec:600,st:"fryer",flip:null,label:"Bone-In Wings",ticket:"Wings BONE-IN",cat:"chunks"},
+  turkey_wings:{sec:720,st:"fryer",flip:null,label:"Turkey Wings",ticket:"Turkey Wings FRIED",cat:"chunks"},
+  fritters:{sec:240,st:"fryer",flip:null,label:"Conch Fritters",ticket:"Conch Fritters",cat:"chunks"},
+  fries:{sec:240,st:"fryer",flip:null,label:"Fries",ticket:"Fries",cat:"fries"},
+  wings_bls:{sec:300,st:"fryer",flip:null,label:"Boneless Wings",ticket:"Wings BONELESS",cat:"chunks"},
+  tenders:{sec:300,st:"fryer",flip:null,label:"Tenders",ticket:"Tenders 4ct",cat:"chunks"},
+  crispy_chx:{sec:360,st:"fryer",flip:null,label:"Crispy Chicken",ticket:"Chicken CRISPY",cat:"fillet"},
+  fried_snapper:{sec:360,st:"fryer",flip:null,label:"Fried Snapper",ticket:"Snapper FRIED",cat:"fillet"},
+  fried_shrimp:{sec:180,st:"fryer",flip:null,label:"Fried Shrimp",ticket:"Shrimp FRIED",cat:"shrimp"},
+  cracked_conch:{sec:240,st:"fryer",flip:null,label:"Cracked Conch",ticket:"Cracked Conch",cat:"chunks"},
+  gator_bites:{sec:240,st:"fryer",flip:null,label:"Gator Bites",ticket:"Gator CRISPY",cat:"chunks"},
+  fried_lamb:{sec:300,st:"fryer",flip:null,label:"Fried Lamb",ticket:"Lamb FRIED",cat:"slab"},
+  grilled_chx:{sec:720,st:"grill",flip:360,label:"Grilled Chicken",ticket:"Chicken GRILLED",cat:"fillet"},
+  grilled_snapper:{sec:540,st:"grill",flip:270,label:"Grilled Snapper",ticket:"Snapper GRILLED",cat:"fillet"},
+  grilled_shrimp:{sec:240,st:"grill",flip:120,label:"Grilled Shrimp",ticket:"Shrimp GRILLED",cat:"shrimp"},
+  grilled_salmon:{sec:480,st:"grill",flip:240,label:"Grilled Salmon",ticket:"Salmon GRILLED",cat:"fillet"},
+  steak_well:{sec:720,st:"grill",flip:360,label:"Strip Steak",ticket:"Strip Steak WELL",cat:"slab"},
+  lamb_well:{sec:480,st:"grill",flip:240,label:"Grilled Lamb",ticket:"Lamb GRILLED",cat:"slab"},
+  alfredo_chx:{sec:240,st:"saute",flip:null,label:"Chicken Alfredo",ticket:"Chicken Alfredo",cat:"pasta",needs:["grilled_chx","crispy_chx"]},
+  alfredo_shrimp:{sec:240,st:"saute",flip:null,label:"Shrimp Alfredo",ticket:"Shrimp Alfredo",cat:"pasta",needs:["grilled_shrimp","fried_shrimp"]},
+  alfredo_salmon:{sec:240,st:"saute",flip:null,label:"Salmon Alfredo",ticket:"Salmon Alfredo",cat:"pasta",needs:["grilled_salmon"]},
+};
+const BREAD_MAP = {_bls:"wings_bls",_tenders:"tenders",_crispy:"crispy_chx",_snap:"fried_snapper",_shr:"fried_shrimp",_conch:"cracked_conch",_gator:"gator_bites",_lamb:"fried_lamb"};
+
+const PROTEINS = [
+  {id:"raw_wings",   name:"Wings Bone-In", direct:{fryer:"wings_bone"}},
+  {id:"raw_bls",     name:"Boneless",      direct:{bread:"_bls"}},
+  {id:"raw_tenders", name:"Tenders",       direct:{bread:"_tenders"}},
+  {id:"raw_chx",     name:"Chicken Brst",  direct:{bread:"_crispy",grill:"grilled_chx"}},
+  {id:"raw_turkey",  name:"Turkey Wings",  direct:{fryer:"turkey_wings"}},
+  {id:"raw_snapper", name:"Snapper",       direct:{bread:"_snap",grill:"grilled_snapper"}},
+  {id:"raw_shrimp",  name:"Jumbo Shrimp",  direct:{bread:"_shr",grill:"grilled_shrimp"}},
+  {id:"raw_salmon",  name:"Salmon",        direct:{grill:"grilled_salmon"}},
+  {id:"raw_conch",   name:"Conch",         direct:{bread:"_conch"}},
+  {id:"raw_fritter", name:"Fritter Mix",   direct:{fryer:"fritters"}},
+  {id:"raw_gator",   name:"Gator Tail",    direct:{bread:"_gator"}},
+  {id:"raw_steak",   name:"Strip Steak",   direct:{grill:"steak_well"}},
+  {id:"raw_lamb",    name:"Lamb Chops",    direct:{bread:"_lamb",grill:"lamb_well"}},
+  {id:"raw_fries",   name:"Fries",         direct:{fryer:"fries"}},
+];
+const SIDES = [
+  {id:"side_mac",name:"Mac n Cheese",short:"Mac"},
+  {id:"side_greens",name:"Southern Greens",short:"Greens"},
+  {id:"side_yams",name:"Yams",short:"Yams"},
+  {id:"side_corn",name:"Cream Corn",short:"Corn"},
+  {id:"side_pots",name:"Smoth. Potatoes",short:"Sm Pots"},
+];
+const COLD = [
+  {id:"d_orange",name:"Orange Drank",short:"Orange"},
+  {id:"d_lemon",name:"Lemonade",short:"Lemonade"},
+  {id:"d_tea",name:"Sweet Tea",short:"Swt Tea"},
+  {id:"des_pud",name:"Banana Pudding",short:"B.Puddin"},
+  {id:"des_cake",name:"Creamsicle Cake",short:"Cake"},
+  {id:"des_cook",name:"RV Cookies",short:"Cookies"},
+];
+const SIDE_IDS=SIDES.map(s=>s.id), COLD_DRINKS=["d_orange","d_lemon","d_tea"], COLD_DES=["des_pud","des_cake","des_cook"];
+
+const MENU = [
+  {id:"WINGS_DIN",name:"Wings Dinner",target:600,cook:[["wings_bone"]],sides:2,drink:1,dessert:.4},
+  {id:"WINGS_FRIES",name:"Wings & Fries",target:540,cook:[["wings_bone"],["fries"]],drink:1,dessert:.2},
+  {id:"BLS_DIN",name:"Boneless Basket",target:500,cook:[["wings_bls"],["fries"]],drink:1,dessert:.2},
+  {id:"TENDER_DIN",name:"Tender Dinner",target:540,cook:[["tenders"]],sides:2,drink:1,dessert:.3},
+  {id:"GRILL_CHX",name:"Grilled Chicken Dinner",target:780,cook:[["grilled_chx"]],sides:2,drink:1,dessert:.3},
+  {id:"TURKEY_DIN",name:"Turkey Wing Dinner",target:780,cook:[["turkey_wings"]],sides:2,drink:1,dessert:.3},
+  {id:"SNAP_DIN",name:"Snapper Dinner",target:660,cook:[["fried_snapper","grilled_snapper"]],sides:2,drink:1,dessert:.4},
+  {id:"SHRIMP_DIN",name:"Jumbo Shrimp Dinner",target:480,cook:[["fried_shrimp","grilled_shrimp"]],sides:2,drink:1,dessert:.3},
+  {id:"SALMON_DIN",name:"Salmon Dinner",target:600,cook:[["grilled_salmon"]],sides:2,drink:1,dessert:.3},
+  {id:"STEAK_DIN",name:"Strip Steak Dinner",target:780,cook:[["steak_well"]],sides:2,drink:1,dessert:.3},
+  {id:"LAMB_DIN",name:"Lamb Chop Dinner",target:660,cook:[["fried_lamb","lamb_well"]],sides:2,drink:1,dessert:.4},
+  {id:"CONCH_DIN",name:"Cracked Conch Dinner",target:540,cook:[["cracked_conch"]],sides:2,drink:1,dessert:.2},
+  {id:"GATOR_DIN",name:"Gator Bites Dinner",target:540,cook:[["gator_bites"]],sides:2,drink:1,dessert:.3},
+  {id:"CHX_ALF",name:"Chicken Alfredo",target:840,cook:[["alfredo_chx"]],drink:1,dessert:.3},
+  {id:"SHRIMP_ALF",name:"Shrimp Alfredo",target:720,cook:[["alfredo_shrimp"]],drink:1,dessert:.3},
+  {id:"SALMON_ALF",name:"Salmon Alfredo",target:780,cook:[["alfredo_salmon"]],drink:1,dessert:.3},
+  {id:"WINGS_APP",name:"Wings — App",target:540,cook:[["wings_bone"]],drink:.5},
+  {id:"FRITTERS",name:"6 Conch Fritters",target:300,cook:[["fritters"]]},
+  {id:"SHRIMP_APP",name:"6 Jumbo Shrimp",target:300,cook:[["fried_shrimp"]]},
+];
+const SIMPLE_IDS=["WINGS_DIN","WINGS_FRIES","BLS_DIN","TENDER_DIN","WINGS_APP","FRITTERS"];
+const COMBO_POOL=["wings_bone","tenders","grilled_chx","crispy_chx","fried_snapper","grilled_snapper","fried_shrimp","grilled_shrimp","cracked_conch","gator_bites"];
+
+const DIFF = {
+  easy:  {name:"STAGE",desc:"Trailing shift. 1–3 tickets, simple menu, slow pace.",init:1,max:3,gapMin:30,gapMax:50,simple:true,combo:0,shiftMin:20},
+  medium:{name:"SATURDAY LUNCH",desc:"Steady turns. Up to 5 tickets, full menu.",init:2,max:5,gapMin:18,gapMax:32,simple:false,combo:.15,shiftMin:25},
+  hard:  {name:"FRIDAY RUSH",desc:"Buried. Up to 7 tickets, combos, no mercy.",init:3,max:7,gapMin:8,gapMax:18,simple:false,combo:.35,shiftMin:30},
+};
+const NAMES=["Bella","Tasha M","Marcus J","Latoya","Demetrius","Aisha K","Jerome W","Keke","Amari R","Tyrese","Janelle B","DeAndre","Imani","Reggie","Kenya M","Mike T","Sarah L","Brittany","Darius","Malcolm","Nia","Jamal","Ericka","Trey","Latrice"];
+const TYPES=["DINE IN","TO GO","DINE IN","TO GO","TO GO"];
+const HOLD_WARN=120,HOLD_DEAD=180,WALK_AFTER=120,FLIP_GRACE=60;
+const MAXG={fryer:4,grill:4,bread:2,saute:2,window:4};
+
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const fmt=s=>{s=Math.max(0,Math.round(s));return String(Math.floor(s/60)).padStart(2,"0")+":"+String(s%60).padStart(2,"0")};
+const el=id=>document.getElementById(id);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ══════════ META (persisted career/economy) ══════════ */
+function loadJSON(k,fb){try{const v=JSON.parse(localStorage.getItem(k));return v==null?fb:v}catch(e){return fb}}
+let best=loadJSON("allday_best",0);
+let soundOn=localStorage.getItem("allday_sound")!=="0";
+let chosenDiff=localStorage.getItem("allday_diff")||"easy";
+let chosenSpeed=loadJSON("allday_speed",3);
+let tips=loadJSON("allday_tips",0);
+let xp=loadJSON("allday_xp",0);
+let day=loadJSON("allday_day",1);
+let gear=Object.assign({fryer:2,grill:2,bread:1,saute:1,window:2},loadJSON("allday_gear",{}));
+let perks=Object.assign({tongs:false,prep:false},loadJSON("allday_perks",{}));
+function saveMeta(){
+  localStorage.setItem("allday_tips",JSON.stringify(tips));
+  localStorage.setItem("allday_xp",JSON.stringify(xp));
+  localStorage.setItem("allday_day",JSON.stringify(day));
+  localStorage.setItem("allday_gear",JSON.stringify(gear));
+  localStorage.setItem("allday_perks",JSON.stringify(perks));
+}
+const LEVELS=[[0,"DISH PIT"],[300,"PREP"],[800,"FRY COOK"],[1600,"GRILL COOK"],[2800,"LINE COOK"],[4500,"SOUS CHEF"],[7000,"CHEF DE CUISINE"]];
+function careerAt(x){let i=0;for(let j=0;j<LEVELS.length;j++)if(x>=LEVELS[j][0])i=j;return i}
+const graceSec=()=>60+(perks.tongs?30:0);
+const breadSec=()=>perks.prep?15:30;
+
+const SHOP=[
+  {id:"fryer3",name:"Third fryer basket",desc:"One more drop going at once.",cost:120,kind:"gear",key:"fryer",to:3},
+  {id:"fryer4",name:"Fourth fryer basket",desc:"Full fry bank.",cost:260,kind:"gear",key:"fryer",to:4},
+  {id:"grill3",name:"Third grill zone",desc:"More grate to work with.",cost:120,kind:"gear",key:"grill",to:3},
+  {id:"grill4",name:"Fourth grill zone",desc:"The whole grill is yours.",cost:260,kind:"gear",key:"grill",to:4},
+  {id:"bread2",name:"Second breading tray",desc:"Bread two items at once.",cost:150,kind:"gear",key:"bread",to:2},
+  {id:"saute2",name:"Second sauté burner",desc:"Two pastas going at once.",cost:180,kind:"gear",key:"saute",to:2},
+  {id:"window3",name:"Third window slot",desc:"More room under the lamps.",cost:100,kind:"gear",key:"window",to:3},
+  {id:"window4",name:"Fourth window slot",desc:"A deep hot hold.",cost:200,kind:"gear",key:"window",to:4},
+  {id:"tongs",name:"Sharper instincts",desc:"Food survives 30s longer before it dies.",cost:220,kind:"perk",key:"tongs"},
+  {id:"prep",name:"Prep cook",desc:"Breading takes 15s instead of 30s.",cost:300,kind:"perk",key:"prep"},
+];
+
+/* ══════════ AUDIO + HAPTICS + TOASTS ══════════ */
+let AC=null;
+function tone(f,dur,type,vol,when){
+  if(!soundOn)return;
+  try{
+    AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+    if(AC.state==="suspended")AC.resume();
+    const t=AC.currentTime+(when||0);
+    const o=AC.createOscillator(),g=AC.createGain();
+    o.type=type||"sine";o.frequency.value=f;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(vol||.08,t+.01);
+    g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+    o.connect(g).connect(AC.destination);o.start(t);o.stop(t+dur+.05);
+  }catch(e){}
+}
+const sfx={
+  pick:()=>tone(340,.06,"triangle",.06),
+  place:()=>{tone(220,.08,"square",.05);tone(440,.05,"triangle",.04,.02)},
+  up:()=>{tone(880,.12,"sine",.09);tone(1174,.14,"sine",.07,.09)},
+  flip:()=>tone(520,.07,"triangle",.07),
+  plate:()=>tone(660,.08,"sine",.07),
+  send:()=>{tone(587,.1,"sine",.09);tone(784,.12,"sine",.09,.08);tone(1046,.16,"sine",.08,.16)},
+  burn:()=>{tone(120,.25,"sawtooth",.07);tone(90,.3,"sawtooth",.05,.08)},
+  walk:()=>{tone(330,.14,"sine",.08);tone(220,.2,"sine",.08,.12)},
+  deny:()=>tone(180,.09,"square",.05),
+  coin:()=>{tone(1318,.07,"triangle",.06);tone(1760,.1,"triangle",.05,.06)},
+  newTicket:()=>{tone(988,.06,"sine",.05);tone(988,.06,"sine",.05,.11)},
+};
+const buzz=ms=>{try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}};
+function toast(msg,kind){
+  const box=el("toasts");
+  while(box.children.length>=3)box.removeChild(box.firstChild);
+  const d=document.createElement("div");
+  d.className="toast "+(kind||"");d.textContent=msg;box.appendChild(d);
+  setTimeout(()=>{d.classList.add("out");setTimeout(()=>d.remove(),320)},2100);
+}
+
+/* ══════════ SIM STATE ══════════ */
+let S=null;
+function freshState(diff,speed){
+  return {
+    running:false,paused:false,diff,speed,shiftSec:0,
+    hand:null,
+    fryer:Array(gear.fryer).fill(null),
+    grill:Array(gear.grill).fill(null),
+    bread:Array(gear.bread).fill(null),
+    saute:Array(gear.saute).fill(null),
+    window:Array(gear.window).fill(null),
+    orders:[],nextNum:101,nextOrderIn:5,
+    score:0,sent:0,walked:0,burned:0,late:0,streak:0,bestStreak:0,
+    sumTicketTime:0,shiftLen:DIFF[diff].shiftMin*60,lastCall:false,earned:0,
+  };
+}
+
+/* ══════════ ORDERS ══════════ */
+function makeItem(kind,product,products){
+  return {kind,product:product||null,products:products||null,done:false,uid:Math.random().toString(36).slice(2,8)};
+}
+function addSidesTo(items,count){
+  const chosen=[];
+  while(chosen.length<count){const s=pick(SIDE_IDS);if(!chosen.includes(s))chosen.push(s)}
+  chosen.forEach(s=>items.push(makeItem("side",s)));
+}
+function spawnOrder(){
+  const d=DIFF[S.diff];
+  if(S.orders.length>=d.max)return;
+  let ord;
+  if(!d.simple&&Math.random()<d.combo){
+    const a=pick(COMBO_POOL),b=pick(COMBO_POOL.filter(x=>x!==a));
+    ord={id:"o"+S.nextNum,num:S.nextNum,label:"Combo · Pick 2",who:pick(NAMES),type:pick(TYPES),born:S.shiftSec,target:780,items:[]};
+    ord.items.push(makeItem("cook",a),makeItem("cook",b));
+    addSidesTo(ord.items,2);addSidesTo(ord.items,2);
+    ord.items.push(makeItem("cold",pick(COLD_DRINKS)));
+  }else{
+    const pool=d.simple?MENU.filter(m=>SIMPLE_IDS.includes(m.id)):MENU;
+    const t=pick(pool);
+    ord={id:"o"+S.nextNum,num:S.nextNum,label:t.name,who:pick(NAMES),type:pick(TYPES),born:S.shiftSec,target:t.target,items:[]};
+    t.cook.forEach(ch=>ord.items.push(ch.length>1?makeItem("cook_choice",null,ch):makeItem("cook",ch[0])));
+    if(t.sides)addSidesTo(ord.items,t.sides);
+    if(t.drink&&(t.drink===1||Math.random()<t.drink))ord.items.push(makeItem("cold",pick(COLD_DRINKS)));
+    if(t.dessert&&Math.random()<t.dessert)ord.items.push(makeItem("cold",pick(COLD_DES)));
+  }
+  S.nextNum++;S.orders.push(ord);
+  ordersDirty=true;sfx.newTicket();
+}
+const matches=(it,key)=>it.kind==="cook_choice"?it.products.includes(key):it.product===key;
+const ticketNeeds=(ord,key)=>ord.items.find(it=>!it.done&&matches(it,key));
+
+/* ══════════ HAND ══════════ */
+function handKey(){
+  if(!S.hand)return null;
+  if(S.hand.kind==="cooked")return S.hand.product;
+  if(S.hand.kind==="side"||S.hand.kind==="cold")return S.hand.id;
+  return null;
+}
+function handLabel(){
+  const h=S.hand;if(!h)return"";
+  if(h.kind==="ing")return PROTEINS.find(p=>p.id===h.id).name;
+  if(h.kind==="breaded")return COOK[BREAD_MAP[h.id]].label+" · breaded";
+  if(h.kind==="cooked")return COOK[h.product].label;
+  if(h.kind==="side")return SIDES.find(s=>s.id===h.id).name;
+  return COLD.find(c=>c.id===h.id).name;
+}
+function handHint(){
+  const h=S.hand;
+  if(!h)return"Open the LOWBOY to grab food.";
+  if(h.kind==="ing"){
+    const ing=PROTEINS.find(p=>p.id===h.id);
+    return"Drop on "+Object.keys(ing.direct).map(k=>k==="bread"?"BREADING":k.toUpperCase()).join(" or ")+" — it's glowing.";
+  }
+  if(h.kind==="breaded")return"Into the fryer.";
+  if(h.kind==="cooked"){
+    const alf=Object.values(COOK).some(c=>c.needs&&c.needs.includes(h.product));
+    return"Tap its ticket"+(alf?", a sauté pan,":"")+" or hold it under the lamps.";
+  }
+  return"Tap the ticket it belongs to.";
+}
+function setHand(h){S.hand=h;renderHand();if(h)sfx.pick()}
+
+/* ══════════ ACTIONS ══════════ */
+function tapBank(kind,id){
+  if(!S.running||S.paused)return;
+  if(S.hand&&(S.hand.kind==="ing"||S.hand.kind==="side"||S.hand.kind==="cold")&&S.hand.id===id){setHand(null);return}
+  if(S.hand&&S.hand.kind==="cooked"){toast("Hands full — plate or stash it first","warn");sfx.deny();return}
+  if(S.hand&&S.hand.kind==="breaded"){toast("Hands full — drop it in the fryer","warn");sfx.deny();return}
+  setHand(kind==="ing"?{kind:"ing",id}:{kind,id});
+  closeDrawer();
+}
+function tapSlot(st,idx){
+  if(!S.running||S.paused)return;
+  const arr=S[st],item=arr[idx];
+  if(!item){
+    const h=S.hand;
+    if(!h)return;
+    if(h.kind==="ing"){
+      const ing=PROTEINS.find(p=>p.id===h.id);
+      const key=ing.direct[st==="bread"?"bread":st];
+      if(!key){toast(ing.name+" goes on "+Object.keys(ing.direct).map(k=>k==="bread"?"BREADING":k.toUpperCase()).join(" / "),"warn");sfx.deny();buzz(30);return}
+      if(st==="bread")arr[idx]={kind:"bread",id:h.id,breadKey:key,elapsed:0,done:false};
+      else arr[idx]={kind:"cook",cookKey:key,elapsed:0,flipped:false,state:"cooking"};
+      setHand(null);sfx.place();buzz(15);return;
+    }
+    if(h.kind==="breaded"){
+      if(st!=="fryer"){toast("Breaded items go in the fryer","warn");sfx.deny();return}
+      arr[idx]={kind:"cook",cookKey:BREAD_MAP[h.id],elapsed:0,flipped:false,state:"cooking"};
+      setHand(null);sfx.place();buzz(15);return;
+    }
+    if(h.kind==="cooked"){
+      if(st!=="saute"){toast("Cooked food goes to a ticket, the window, or sauté","warn");sfx.deny();return}
+      const entry=Object.entries(COOK).find(([,c])=>c.st==="saute"&&c.needs&&c.needs.includes(h.product));
+      if(!entry){toast("No pasta calls for "+COOK[h.product].label,"warn");sfx.deny();return}
+      arr[idx]={kind:"cook",cookKey:entry[0],elapsed:0,flipped:false,state:"cooking"};
+      setHand(null);sfx.place();buzz(15);return;
+    }
+    toast("That doesn't go there","warn");sfx.deny();return;
+  }
+  if(item.kind==="bread"){
+    if(!item.done){toast("Still breading…","warn");return}
+    if(S.hand){toast("Hands full","warn");sfx.deny();return}
+    arr[idx]=null;
+    setHand({kind:"breaded",id:item.breadKey});
+    return;
+  }
+  const c=COOK[item.cookKey];
+  if(item.state==="burnt"){
+    arr[idx]=null;
+    S.score=Math.max(0,S.score-25);S.streak=0;S.burned++;
+    toast("Trashed "+c.label+"  −25","bad");sfx.burn();buzz([40,40,40]);
+    renderHUD();return;
+  }
+  if(item.state==="up"){
+    if(S.hand){toast("Hands full","warn");sfx.deny();return}
+    arr[idx]=null;
+    setHand({kind:"cooked",product:item.cookKey});
+    return;
+  }
+  if(c.flip&&!item.flipped){
+    if(item.elapsed>=c.flip){item.flipped=true;toast("Flipped "+c.label,"good");sfx.flip();buzz(15)}
+    else toast("Early — flip in "+fmt(c.flip-item.elapsed),"warn");
+    return;
+  }
+  toast(fmt(c.sec-item.elapsed)+" left on "+c.label,"warn");
+}
+function tapWindow(idx){
+  if(!S.running||S.paused)return;
+  const w=S.window[idx];
+  if(S.hand&&S.hand.kind==="cooked"&&!w){
+    S.window[idx]={product:S.hand.product,since:S.shiftSec};
+    setHand(null);sfx.place();return;
+  }
+  if(!S.hand&&w){
+    S.window[idx]=null;
+    setHand({kind:"cooked",product:w.product});return;
+  }
+  if(S.hand&&w){toast("Slot's taken","warn");sfx.deny()}
+}
+function tapTrash(){
+  if(!S.running||S.paused||!S.hand)return;
+  const h=S.hand;
+  if(h.kind==="cooked"){S.score=Math.max(0,S.score-10);toast("Wasted "+handLabel()+"  −10","bad");renderHUD()}
+  else toast("Put back "+handLabel(),"");
+  setHand(null);
+}
+function tapTicket(ordId){
+  if(!S.running||S.paused)return;
+  const ord=S.orders.find(o=>o.id===ordId);if(!ord)return;
+  const key=handKey();
+  if(!key){
+    if(S.hand){toast("That's raw — cook it first","warn");sfx.deny()}
+    return;
+  }
+  const need=ticketNeeds(ord,key);
+  if(!need){
+    toast("#"+ord.num+" doesn't call for "+handLabel(),"warn");sfx.deny();buzz(30);
+    const card=document.querySelector('[data-oid="'+ordId+'"]');
+    if(card){card.classList.remove("reject");void card.offsetWidth;card.classList.add("reject")}
+    return;
+  }
+  need.done=true;setHand(null);
+  sfx.plate();buzz(12);ordersDirty=true;renderTickets();
+}
+function sendOrder(ordId){
+  const i=S.orders.findIndex(o=>o.id===ordId);if(i<0)return;
+  const ord=S.orders[i];
+  if(!ord.items.every(it=>it.done))return;
+  const elapsed=S.shiftSec-ord.born,remain=ord.target-elapsed;
+  let pts=100,kind="good",msg="ORDER UP  +100";
+  S.streak++;
+  if(remain<0){pts=Math.max(20,60+Math.floor(remain/30)*10);msg="Sent late  +"+pts;kind="warn";S.streak=0;S.late++}
+  else if(remain<30){pts=130;msg="TIGHT!  +130"}
+  else if(S.streak>=3){pts+=25;msg="STREAK ×"+S.streak+"  +"+pts}
+  S.bestStreak=Math.max(S.bestStreak,S.streak);
+  S.score+=pts;S.sent++;S.sumTicketTime+=elapsed;
+  const coins=Math.max(1,Math.round(pts/5));
+  S.earned+=coins;tips+=coins;xp+=pts;saveMeta();
+  if(S.score>best){best=S.score;localStorage.setItem("allday_best",JSON.stringify(best))}
+  toast(msg,kind);sfx.send();sfx.coin();buzz([20,30,20]);
+  const card=document.querySelector('[data-oid="'+ordId+'"]');
+  const finish=()=>{
+    const j=S.orders.findIndex(o=>o.id===ordId);
+    if(j>=0){S.orders.splice(j,1);ordersDirty=true;renderTickets()}
+  };
+  if(card){card.classList.add("bump");setTimeout(finish,300)}else finish();
+  renderHUD();
+}
+
+/* ══════════ TICK ══════════ */
+let lastT=performance.now();
+let ordersDirty=false;
+function tick(){
+  const now=performance.now();
+  const real=(now-lastT)/1000;lastT=now;
+  if(!S||!S.running||S.paused)return;
+  const dt=Math.min(real,0.5)*S.speed;
+  S.shiftSec+=dt;
+
+  S.bread.forEach(b=>{
+    if(!b||b.kind!=="bread"||b.done)return;
+    b.elapsed+=dt;
+    if(b.elapsed>=breadSec()){b.done=true;sfx.up();buzz(20)}
+  });
+  ["fryer","grill","saute"].forEach(st=>{
+    S[st].forEach(it=>{
+      if(!it||it.kind!=="cook"||it.state==="burnt")return;
+      const c=COOK[it.cookKey];
+      it.elapsed+=dt;
+      if(it.state==="cooking"){
+        if(c.flip&&!it.flipped&&it.elapsed>c.flip+FLIP_GRACE){
+          it.state="burnt";toast(c.label+" burned — missed the flip","bad");sfx.burn();buzz([50,50,50]);
+        }else if((!c.flip||it.flipped)&&it.elapsed>=c.sec){
+          it.state="up";sfx.up();buzz(25);
+        }
+      }else if(it.state==="up"&&it.elapsed>c.sec+graceSec()){
+        it.state="burnt";toast(c.label+" died in the "+(st==="fryer"?"basket":st),"bad");sfx.burn();buzz([50,50,50]);
+      }
+    });
+  });
+  S.window.forEach((wi,i)=>{
+    if(!wi)return;
+    if(S.shiftSec-wi.since>HOLD_DEAD){
+      S.window[i]=null;
+      S.score=Math.max(0,S.score-15);
+      toast(COOK[wi.product].label+" died in the window  −15","bad");sfx.burn();
+    }
+  });
+  for(let i=S.orders.length-1;i>=0;i--){
+    const o=S.orders[i];
+    if(S.shiftSec-o.born>o.target+WALK_AFTER){
+      S.orders.splice(i,1);
+      S.walked++;S.streak=0;S.score=Math.max(0,S.score-75);
+      toast("#"+o.num+" walked  −75","bad");sfx.walk();buzz([60,40,60]);
+      ordersDirty=true;
+    }
+  }
+  if(!S.lastCall&&S.shiftSec>=S.shiftLen-120){
+    S.lastCall=true;
+    toast("LAST CALL — clear the rail","warn");sfx.walk();
+  }
+  if(S.shiftSec>=S.shiftLen&&S.orders.length===0){endShift();return}
+  if(S.shiftSec>=S.shiftLen+300){endShift();return}
+  S.nextOrderIn-=dt;
+  if(S.nextOrderIn<=0){
+    const d=DIFF[S.diff];
+    if(!S.lastCall&&S.orders.length<d.max)spawnOrder();
+    S.nextOrderIn=d.gapMin+Math.random()*(d.gapMax-d.gapMin);
+  }
+  renderHUD();
+  if(ordersDirty)renderTickets();else updateTicketAges();
+  badgeTimer-=1;
+  if(badgeTimer<=0){badgeTimer=5;updateBadges()}
+}
+setInterval(tick,100);
+
+/* ══════════ SCENE — canvas kitchen ══════════ */
+const cv=el("scene");
+const ctx=cv.getContext&&cv.getContext("2d");
+const WORLD={w:1560,h:500};
+let view={s:1,ox:0,oy:0,railH:150};
+const reduceMotion=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* station geometry (world units) */
+const GEO={
+  pass:{x:260,y:16,w:1040,h:96,slots:[[560,68],[720,68],[880,68],[1040,68]]},
+  bread:{x:40,y:170,w:230,h:170,label:"BREADING",slots:[[105,262],[196,262]]},
+  fryer:{x:300,y:170,w:400,h:170,label:"FRYER · 350°",slots:[[352,262],[442,262],[532,262],[622,262]]},
+  grill:{x:730,y:170,w:400,h:170,label:"GRILL",slots:[[782,262],[872,262],[962,262],[1052,262]]},
+  saute:{x:1160,y:170,w:200,h:170,label:"SAUTÉ",slots:[[1212,262],[1302,262]]},
+  counter:{x:0,y:400,w:1560,h:100},
+  board:{x:640,y:410,w:300,h:82},
+  trash:{x:1420,y:404,w:110,h:92},
+  lowboy:{x:30,y:406,w:560,h:90},
+};
+let hits=[];
+function buildHits(){
+  hits=[];
+  ["bread","fryer","grill","saute"].forEach(st=>{
+    const g=GEO[st];
+    for(let i=0;i<(S?S[st].length:gear[st]);i++){
+      const [cx,cy]=g.slots[i];
+      hits.push({kind:"slot",st,idx:i,x:cx-44,y:cy-52,w:88,h:104});
+    }
+  });
+  for(let i=0;i<(S?S.window.length:gear.window);i++){
+    const [cx,cy]=GEO.pass.slots[i];
+    hits.push({kind:"window",idx:i,x:cx-52,y:cy-38,w:104,h:76});
+  }
+  hits.push({kind:"trash",...GEO.trash});
+  hits.push({kind:"lowboy",...GEO.lowboy});
+  hits.push({kind:"lowboy",x:GEO.board.x,y:GEO.board.y,w:GEO.board.w,h:GEO.board.h});
+}
+function resize(){
+  const sw=window.innerWidth,sh=window.innerHeight;
+  const dpr=Math.min(window.devicePixelRatio||1,2);
+  cv.width=sw*dpr;cv.height=sh*dpr;
+  cv.style.width=sw+"px";cv.style.height=sh+"px";
+  if(ctx){ctx.setTransform(dpr,0,0,dpr,0,0)}
+  const availH=sh-view.railH-8;
+  view.s=Math.min(sw/WORLD.w,availH/WORLD.h);
+  view.ox=(sw-WORLD.w*view.s)/2;
+  view.oy=view.railH+(availH-WORLD.h*view.s)/2;
+  el("rotate").classList.toggle("show",sh>sw*1.15&&sw<700);
+}
+window.addEventListener("resize",resize);
+
+/* color helpers */
+function lerpC(a,b,t){
+  t=clamp(t,0,1);
+  return"rgb("+Math.round(a[0]+(b[0]-a[0])*t)+","+Math.round(a[1]+(b[1]-a[1])*t)+","+Math.round(a[2]+(b[2]-a[2])*t)+")";
+}
+const RAWC={chunks:[214,178,150],fillet:[219,196,183],shrimp:[209,185,178],slab:[168,58,53],fries:[229,214,166],pasta:[232,220,194]};
+const COOKC={chunks:[178,110,42],fillet:[190,128,55],shrimp:[214,126,63],slab:[95,58,40],fries:[214,161,59],pasta:[228,206,160]};
+const CHAR=[26,19,15];
+function foodColor(cat,prog,burnt){
+  if(burnt)return lerpC(COOKC[cat],CHAR,1);
+  return lerpC(RAWC[cat],COOKC[cat],prog);
+}
+
+/* particles */
+let parts=[];
+function spawnPart(type,x,y){
+  if(reduceMotion)return;
+  if(parts.length>220)return;
+  if(type==="bubble")parts.push({type,x:x+(Math.random()*40-20),y,vy:-14-Math.random()*10,life:.7+Math.random()*.5,age:0,r:1.5+Math.random()*2});
+  if(type==="steam")parts.push({type,x:x+(Math.random()*30-15),y,vy:-22-Math.random()*14,vx:Math.random()*8-4,life:1.6+Math.random(),age:0,r:6+Math.random()*7});
+  if(type==="smoke")parts.push({type,x:x+(Math.random()*24-12),y,vy:-18-Math.random()*10,vx:Math.random()*6-3,life:2+Math.random(),age:0,r:7+Math.random()*8});
+  if(type==="spark")parts.push({type,x,y,vy:-40-Math.random()*40,vx:Math.random()*50-25,life:.5+Math.random()*.3,age:0,r:1.5});
+}
+function drawParts(dt){
+  for(let i=parts.length-1;i>=0;i--){
+    const p=parts[i];
+    p.age+=dt;
+    if(p.age>=p.life){parts.splice(i,1);continue}
+    p.y+=p.vy*dt;p.x+=(p.vx||0)*dt;
+    const k=1-p.age/p.life;
+    if(p.type==="bubble"){
+      ctx.fillStyle="rgba(240,220,180,"+(.35*k)+")";
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,7);ctx.fill();
+    }else if(p.type==="steam"){
+      ctx.fillStyle="rgba(200,205,210,"+(.13*k)+")";
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1.6-k*.6),0,7);ctx.fill();
+    }else if(p.type==="smoke"){
+      ctx.fillStyle="rgba(40,38,36,"+(.4*k)+")";
+      ctx.beginPath();ctx.arc(p.x,p.y,p.r*(1.8-k*.8),0,7);ctx.fill();
+    }else{
+      ctx.fillStyle="rgba(255,180,94,"+(.9*k)+")";
+      ctx.fillRect(p.x,p.y,2,2);
+    }
+  }
+}
+
+function rr(x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();
+}
+function steelBody(g){
+  const grad=ctx.createLinearGradient(0,g.y,0,g.y+g.h);
+  grad.addColorStop(0,"#31383e");grad.addColorStop(.12,"#272d33");grad.addColorStop(1,"#191d21");
+  ctx.fillStyle=grad;rr(g.x,g.y,g.w,g.h,10);ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.06)";ctx.lineWidth=1;
+  rr(g.x+.5,g.y+.5,g.w-1,g.h-1,10);ctx.stroke();
+  ctx.fillStyle="rgba(0,0,0,.35)";
+  ctx.fillRect(g.x+6,g.y+g.h-8,g.w-12,4);
+}
+function stationLabel(g){
+  ctx.font="700 15px 'Archivo Narrow','Arial Narrow','Roboto Condensed',sans-serif";
+  ctx.textAlign="left";ctx.textBaseline="alphabetic";
+  ctx.fillStyle="rgba(141,149,156,.75)";
+  ctx.fillText(g.label,g.x+12,g.y+24);
+}
+function lockedCover(cx,cy){
+  ctx.fillStyle="#1b2024";
+  rr(cx-36,cy-30,72,60,8);ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.05)";ctx.stroke();
+  ctx.fillStyle="rgba(232,147,58,.5)";
+  ctx.beginPath();ctx.arc(cx,cy,4,0,7);ctx.fill();
+  ctx.fillRect(cx-1.5,cy,3,9);
+}
+
+/* food blobs — deterministic per slot index */
+function drawFood(cat,cx,cy,prog,burnt,onGrill,idx){
+  const col=foodColor(cat,prog,burnt);
+  ctx.fillStyle=col;
+  const j=n=>((idx*73+n*37)%17)/17-.5; // deterministic jitter
+  if(cat==="chunks"){
+    for(let n=0;n<5;n++){
+      const bx=cx+j(n)*46,by=cy+j(n+9)*30;
+      ctx.beginPath();ctx.ellipse(bx,by,11+((idx+n)%3)*2,8.5,j(n)*1.2,0,7);ctx.fill();
+    }
+  }else if(cat==="fries"){
+    for(let n=0;n<7;n++){
+      ctx.save();ctx.translate(cx+j(n)*40,cy+j(n+5)*22);ctx.rotate(j(n)*1.1);
+      ctx.fillRect(-3,-14,6,28);ctx.restore();
+    }
+  }else if(cat==="fillet"){
+    ctx.beginPath();ctx.ellipse(cx,cy,30,17,-.15,0,7);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.12)";
+    ctx.beginPath();ctx.ellipse(cx-6,cy-4,14,6,-.2,0,7);ctx.fill();
+  }else if(cat==="shrimp"){
+    for(let n=0;n<3;n++){
+      ctx.beginPath();
+      ctx.arc(cx-20+n*20,cy+j(n)*10,10,.6,4.2);
+      ctx.lineWidth=7;ctx.strokeStyle=col;ctx.stroke();
+    }
+  }else if(cat==="slab"){
+    rr(cx-27,cy-16,54,32,9);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.08)";
+    rr(cx-20,cy-11,26,9,4);ctx.fill();
+  }else{ /* pasta */
+    ctx.beginPath();ctx.arc(cx,cy,22,0,7);ctx.fill();
+    ctx.strokeStyle="rgba(120,90,50,.5)";ctx.lineWidth=2;
+    ctx.beginPath();ctx.arc(cx,cy,14,0,5);ctx.stroke();
+    ctx.beginPath();ctx.arc(cx+3,cy+2,8,1,6);ctx.stroke();
+  }
+  if(onGrill&&(prog>.25||burnt)){
+    ctx.strokeStyle="rgba(20,14,10,"+(burnt?.9:.55)+")";
+    ctx.lineWidth=3;
+    for(let n=-1;n<=1;n++){
+      ctx.beginPath();ctx.moveTo(cx-24,cy+n*10-4);ctx.lineTo(cx+24,cy+n*10+4);ctx.stroke();
+    }
+  }
+}
+function timerPill(cx,cy,txt,frac,color,flash,t){
+  if(flash&&Math.sin(t*9)>0)return;
+  const w=64,h=20;
+  ctx.fillStyle="rgba(8,10,12,.85)";
+  rr(cx-w/2,cy-h/2,w,h,10);ctx.fill();
+  if(frac!=null){
+    ctx.strokeStyle=color;ctx.lineWidth=2.5;
+    ctx.beginPath();ctx.arc(cx-w/2+11,cy,6,-Math.PI/2,-Math.PI/2+frac*Math.PI*2);ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,.12)";ctx.lineWidth=1;
+    ctx.beginPath();ctx.arc(cx-w/2+11,cy,6,0,7);ctx.stroke();
+  }
+  ctx.font="700 12px ui-monospace,'Cascadia Mono',Menlo,monospace";
+  ctx.textAlign=frac!=null?"left":"center";ctx.textBaseline="middle";
+  ctx.fillStyle=color;
+  ctx.fillText(txt,frac!=null?cx-w/2+22:cx,cy+.5);
+}
+function targetGlow(cx,cy,w,h,t,round){
+  const a=.45+.3*Math.sin(t*5);
+  ctx.strokeStyle="rgba(232,147,58,"+a+")";
+  ctx.lineWidth=3;
+  if(round){ctx.beginPath();ctx.arc(cx,cy,w/2,0,7);ctx.stroke()}
+  else{rr(cx-w/2,cy-h/2,w,h,10);ctx.stroke()}
+}
+
+function validTarget(st,idx){
+  const h=S&&S.hand;
+  if(!h||S[st][idx])return false;
+  if(h.kind==="ing"){const ing=PROTEINS.find(p=>p.id===h.id);return!!ing.direct[st]}
+  if(h.kind==="breaded")return st==="fryer";
+  if(h.kind==="cooked"&&st==="saute")return Object.values(COOK).some(c=>c.st==="saute"&&c.needs&&c.needs.includes(h.product));
+  return false;
+}
+
+let frameT=0,lastFrame=performance.now();
+function drawScene(){
+  if(!ctx){requestAnimationFrame(drawScene);return}
+  const now=performance.now();
+  const fdt=Math.min((now-lastFrame)/1000,.1);lastFrame=now;
+  if(!reduceMotion)frameT+=fdt;
+  const t=frameT;
+  const sw=cv.width/(Math.min(window.devicePixelRatio||1,2)),sh=cv.height/(Math.min(window.devicePixelRatio||1,2));
+
+  /* ambient */
+  ctx.fillStyle="#0b0d0e";ctx.fillRect(0,0,sw,sh);
+  const vg=ctx.createRadialGradient(sw/2,sh*.45,sh*.2,sw/2,sh*.45,sh*.95);
+  vg.addColorStop(0,"rgba(24,20,14,.28)");vg.addColorStop(1,"rgba(0,0,0,0)");
+  ctx.fillStyle=vg;ctx.fillRect(0,0,sw,sh);
+
+  ctx.save();
+  ctx.translate(view.ox,view.oy);ctx.scale(view.s,view.s);
+
+  /* floor */
+  ctx.fillStyle="#101315";
+  ctx.fillRect(-view.ox/view.s,110,WORLD.w+2*view.ox/view.s,WORLD.h-110);
+  ctx.strokeStyle="rgba(255,255,255,.025)";ctx.lineWidth=1;
+  for(let x=-200;x<WORLD.w+200;x+=130){ctx.beginPath();ctx.moveTo(x,112);ctx.lineTo(x,WORLD.h);ctx.stroke()}
+  for(let y=150;y<WORLD.h;y+=90){ctx.beginPath();ctx.moveTo(-view.ox/view.s,y);ctx.lineTo(WORLD.w+view.ox/view.s,y);ctx.stroke()}
+
+  /* ── PASS ── */
+  const P=GEO.pass;
+  /* heat lamp glow pool */
+  const lampG=ctx.createRadialGradient(P.x+P.w/2,P.y+50,20,P.x+P.w/2,P.y+50,P.w*.55);
+  const flick=reduceMotion?1:.92+.08*Math.sin(t*11)+.04*Math.sin(t*23);
+  lampG.addColorStop(0,"rgba(232,150,60,"+(.20*flick)+")");
+  lampG.addColorStop(1,"rgba(232,150,60,0)");
+  ctx.fillStyle=lampG;ctx.fillRect(P.x-100,P.y-16,P.w+200,140);
+  steelBody(P);
+  /* lamp cones */
+  for(let i=0;i<4;i++){
+    const lx=P.x+170+i*240;
+    ctx.fillStyle="#20262b";
+    ctx.beginPath();ctx.moveTo(lx-16,P.y+4);ctx.lineTo(lx+16,P.y+4);ctx.lineTo(lx+9,P.y+16);ctx.lineTo(lx-9,P.y+16);ctx.closePath();ctx.fill();
+    ctx.fillStyle="rgba(255,180,94,"+(.75*flick)+")";
+    ctx.beginPath();ctx.ellipse(lx,P.y+17,8,3,0,0,7);ctx.fill();
+  }
+  ctx.font="700 14px 'Archivo Narrow','Arial Narrow',sans-serif";
+  ctx.textAlign="left";ctx.fillStyle="rgba(141,149,156,.7)";
+  ctx.fillText("PASS — HOT WINDOW",P.x+12,P.y+22);
+  /* window plates */
+  for(let i=0;i<gear.window;i++){
+    const[cx,cy]=P.slots[i];
+    const w=S?S.window[i]:null;
+    /* plate */
+    ctx.fillStyle="#e7e2d6";
+    ctx.beginPath();ctx.ellipse(cx,cy+8,44,15,0,0,7);ctx.fill();
+    ctx.fillStyle="#d5cfc0";
+    ctx.beginPath();ctx.ellipse(cx,cy+7,34,11,0,0,7);ctx.fill();
+    if(w){
+      const c=COOK[w.product];
+      drawFood(c.cat,cx,cy-2,1,false,false,i+3);
+      if(!reduceMotion&&Math.random()<.1)spawnPart("steam",cx,cy-14);
+      const age=S.shiftSec-w.since;
+      if(age>HOLD_WARN)timerPill(cx,cy-34,fmt(HOLD_DEAD-age),null,"#d9a13b",false,t);
+    }else if(S&&S.hand&&S.hand.kind==="cooked"){
+      targetGlow(cx,cy+4,96,50,t,false);
+    }
+  }
+  for(let i=gear.window;i<MAXG.window;i++){const[cx,cy]=P.slots[i];lockedCover(cx,cy)}
+
+  /* ── HOT LINE stations ── */
+  /* breading */
+  const B=GEO.bread;steelBody(B);stationLabel(B);
+  for(let i=0;i<gear.bread;i++){
+    const[cx,cy]=B.slots[i];
+    /* flour tray */
+    ctx.fillStyle="#3a3f3a";rr(cx-38,cy-30,76,60,7);ctx.fill();
+    ctx.fillStyle="#c9c4ae";rr(cx-32,cy-24,64,48,5);ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.25)";
+    ctx.beginPath();ctx.ellipse(cx-8,cy-6,14,6,.3,0,7);ctx.fill();
+    const b=S?S.bread[i]:null;
+    if(b){
+      const ing=PROTEINS.find(p=>p.id===b.id);
+      const ck=BREAD_MAP[b.breadKey];
+      drawFood(COOK[ck].cat,cx,cy,0,false,false,i);
+      if(b.done){
+        ctx.fillStyle="rgba(240,236,220,.55)"; /* flour dust coat */
+        ctx.beginPath();ctx.ellipse(cx,cy,30,18,0,0,7);ctx.fill();
+        timerPill(cx,cy-46,"GRAB",null,"#4fa870",false,t);
+      }else{
+        timerPill(cx,cy-46,fmt(breadSec()-b.elapsed),b.elapsed/breadSec(),"#c9cba9",false,t);
+      }
+    }else if(S&&validTarget("bread",i))targetGlow(cx,cy,84,66,t,false);
+  }
+  for(let i=gear.bread;i<MAXG.bread;i++){const[cx,cy]=B.slots[i];lockedCover(cx,cy)}
+
+  /* fryer */
+  const F=GEO.fryer;steelBody(F);stationLabel(F);
+  for(let i=0;i<gear.fryer;i++){
+    const[cx,cy]=F.slots[i];
+    /* oil well */
+    ctx.fillStyle="#141210";rr(cx-38,cy-32,76,64,8);ctx.fill();
+    const oil=ctx.createRadialGradient(cx-10,cy-12,4,cx,cy,44);
+    oil.addColorStop(0,"#4a3517");oil.addColorStop(.5,"#2c2010");oil.addColorStop(1,"#1a130a");
+    ctx.fillStyle=oil;rr(cx-33,cy-27,66,54,6);ctx.fill();
+    /* moving sheen */
+    if(!reduceMotion){
+      ctx.fillStyle="rgba(232,180,110,.07)";
+      ctx.beginPath();ctx.ellipse(cx+Math.sin(t*1.3+i)*10,cy-6+Math.cos(t*.9+i*2)*4,20,7,.2,0,7);ctx.fill();
+    }
+    const it=S?S.fryer[i]:null;
+    if(it){
+      const c=COOK[it.cookKey];
+      const prog=clamp(it.elapsed/c.sec,0,1);
+      drawFood(c.cat,cx,cy+2,prog,it.state==="burnt",false,i);
+      /* oil covers lower part */
+      ctx.fillStyle="rgba(30,21,10,.45)";
+      ctx.beginPath();ctx.ellipse(cx,cy+14,33,12,0,0,7);ctx.fill();
+      if(it.state==="cooking"){
+        if(!reduceMotion&&Math.random()<.5)spawnPart("bubble",cx,cy+8);
+        timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,"#e8933a",false,t);
+      }else if(it.state==="up"){
+        timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+        if(!reduceMotion&&Math.random()<.06)spawnPart("steam",cx,cy-10);
+      }else{
+        timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
+        if(!reduceMotion&&Math.random()<.2)spawnPart("smoke",cx,cy-8);
+      }
+    }else if(S&&validTarget("fryer",i))targetGlow(cx,cy,84,70,t,false);
+    /* basket handle */
+    ctx.strokeStyle="#454c52";ctx.lineWidth=4;
+    ctx.beginPath();ctx.moveTo(cx-14,cy-32);ctx.lineTo(cx+14,cy-32);ctx.stroke();
+  }
+  for(let i=gear.fryer;i<MAXG.fryer;i++){const[cx,cy]=F.slots[i];lockedCover(cx,cy)}
+
+  /* grill */
+  const G=GEO.grill;steelBody(G);stationLabel(G);
+  for(let i=0;i<gear.grill;i++){
+    const[cx,cy]=G.slots[i];
+    const it=S?S.grill[i]:null;
+    /* fire glow under grates */
+    const heat=it&&it.state!=="burnt"?1:.35;
+    const fg=ctx.createRadialGradient(cx,cy+6,4,cx,cy+6,42);
+    const ff=reduceMotion?1:.85+.15*Math.sin(t*9+i*2.1)+.07*Math.sin(t*17+i);
+    fg.addColorStop(0,"rgba(226,98,34,"+(.5*heat*ff)+")");
+    fg.addColorStop(.6,"rgba(160,52,20,"+(.25*heat*ff)+")");
+    fg.addColorStop(1,"rgba(0,0,0,0)");
+    ctx.fillStyle="#0d0b09";rr(cx-38,cy-32,76,64,8);ctx.fill();
+    ctx.fillStyle=fg;rr(cx-38,cy-32,76,64,8);ctx.fill();
+    /* grates */
+    ctx.strokeStyle="#1c1f22";ctx.lineWidth=5;
+    for(let n=0;n<5;n++){ctx.beginPath();ctx.moveTo(cx-36,cy-24+n*12);ctx.lineTo(cx+36,cy-24+n*12);ctx.stroke()}
+    if(it){
+      const c=COOK[it.cookKey];
+      const prog=clamp(it.elapsed/c.sec,0,1);
+      drawFood(c.cat,cx,cy,prog,it.state==="burnt",true,i);
+      if(it.state==="cooking"){
+        const inFlip=c.flip&&!it.flipped&&it.elapsed>=c.flip;
+        if(inFlip){
+          timerPill(cx,cy-48,"FLIP",null,"#d9a13b",true,t);
+          if(!reduceMotion&&Math.random()<.15)spawnPart("spark",cx,cy);
+        }else{
+          timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,c.flip&&!it.flipped?"#d9a13b":"#e8933a",false,t);
+        }
+        if(c.flip&&it.flipped){
+          ctx.font="700 11px ui-monospace,monospace";ctx.textAlign="center";
+          ctx.fillStyle="#4fa870";ctx.fillText("⤾✓",cx+28,cy-38);
+        }
+        if(!reduceMotion&&Math.random()<.12)spawnPart("steam",cx,cy-16);
+      }else if(it.state==="up"){
+        timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+      }else{
+        timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
+        if(!reduceMotion&&Math.random()<.2)spawnPart("smoke",cx,cy-10);
+      }
+    }else if(S&&validTarget("grill",i))targetGlow(cx,cy,84,70,t,false);
+  }
+  for(let i=gear.grill;i<MAXG.grill;i++){const[cx,cy]=G.slots[i];lockedCover(cx,cy)}
+
+  /* sauté */
+  const SA=GEO.saute;steelBody(SA);stationLabel(SA);
+  for(let i=0;i<gear.saute;i++){
+    const[cx,cy]=SA.slots[i];
+    /* burner ring */
+    ctx.strokeStyle="#111417";ctx.lineWidth=9;
+    ctx.beginPath();ctx.arc(cx,cy,30,0,7);ctx.stroke();
+    const it=S?S.saute[i]:null;
+    if(it||!S){
+      /* pan */
+      ctx.fillStyle="#15181b";ctx.beginPath();ctx.arc(cx,cy,28,0,7);ctx.fill();
+      ctx.strokeStyle="#31383e";ctx.lineWidth=3;ctx.beginPath();ctx.arc(cx,cy,28,0,7);ctx.stroke();
+      ctx.strokeStyle="#262c31";ctx.lineWidth=6;
+      ctx.beginPath();ctx.moveTo(cx+27,cy-8);ctx.lineTo(cx+48,cy-16);ctx.stroke();
+    }
+    if(it){
+      /* gas flame */
+      if(it.state!=="burnt"&&!reduceMotion){
+        ctx.fillStyle="rgba(90,140,235,"+(.5+.2*Math.sin(t*13+i))+")";
+        for(let n=0;n<8;n++){
+          const a=n/8*Math.PI*2;
+          ctx.beginPath();ctx.ellipse(cx+Math.cos(a)*33,cy+Math.sin(a)*33,2.5,5,a+Math.PI/2,0,7);ctx.fill();
+        }
+      }
+      const c=COOK[it.cookKey];
+      const prog=clamp(it.elapsed/c.sec,0,1);
+      drawFood("pasta",cx,cy,prog,it.state==="burnt",false,i);
+      if(it.state==="cooking"){
+        timerPill(cx,cy-48,fmt(c.sec-it.elapsed),prog,"#e8933a",false,t);
+        if(!reduceMotion&&Math.random()<.15)spawnPart("steam",cx,cy-12);
+      }else if(it.state==="up")timerPill(cx,cy-48,"UP "+fmt(it.elapsed-c.sec),null,"#4fa870",false,t);
+      else timerPill(cx,cy-48,"BURNT",null,"#e86a5e",false,t);
+    }else if(S&&validTarget("saute",i))targetGlow(cx,cy,74,74,t,true);
+  }
+  for(let i=gear.saute;i<MAXG.saute;i++){const[cx,cy]=SA.slots[i];lockedCover(cx,cy)}
+
+  /* ── COUNTER / LOWBOY ── */
+  const C=GEO.counter;
+  const cg=ctx.createLinearGradient(0,C.y,0,C.y+C.h);
+  cg.addColorStop(0,"#2b3137");cg.addColorStop(.1,"#22272c");cg.addColorStop(1,"#15181b");
+  ctx.fillStyle=cg;ctx.fillRect(C.x-view.ox/view.s,C.y,C.w+2*view.ox/view.s,C.h);
+  ctx.fillStyle="rgba(255,255,255,.05)";ctx.fillRect(C.x-view.ox/view.s,C.y,C.w+2*view.ox/view.s,2);
+  /* lowboy drawers */
+  const L=GEO.lowboy;
+  for(let i=0;i<3;i++){
+    const dx=L.x+8+i*186;
+    ctx.fillStyle="#1d2226";rr(dx,L.y+8,174,76,6);ctx.fill();
+    ctx.strokeStyle="rgba(255,255,255,.06)";rr(dx+.5,L.y+8.5,173,75,6);ctx.stroke();
+    ctx.fillStyle="#454c52";rr(dx+52,L.y+18,70,7,3.5);ctx.fill();
+  }
+  ctx.font="700 15px 'Archivo Narrow','Arial Narrow',sans-serif";
+  ctx.textAlign="left";ctx.fillStyle="rgba(232,147,58,.8)";
+  ctx.fillText("LOWBOY — TAP FOR STOCK",L.x+12,L.y-4);
+  /* cutting board + held item */
+  const BD=GEO.board;
+  ctx.fillStyle="#4a3d2c";rr(BD.x,BD.y,BD.w,BD.h,8);ctx.fill();
+  ctx.fillStyle="#5b4c37";rr(BD.x+6,BD.y+6,BD.w-12,BD.h-12,6);ctx.fill();
+  if(S&&S.hand){
+    const h=S.hand;
+    let cat="chunks",prog=0;
+    if(h.kind==="cooked"){cat=COOK[h.product].cat;prog=1}
+    else if(h.kind==="breaded")cat=COOK[BREAD_MAP[h.id]].cat;
+    else if(h.kind==="ing"){const d=PROTEINS.find(p=>p.id===h.id).direct;const k=d.fryer||d.grill||(d.bread?BREAD_MAP[d.bread]:null);cat=k?COOK[k].cat:"chunks"}
+    if(h.kind==="side"||h.kind==="cold"){
+      ctx.fillStyle=h.kind==="side"?"#c9a86a":"#b9c4cc";
+      ctx.beginPath();ctx.ellipse(BD.x+BD.w/2,BD.y+BD.h/2,26,15,0,0,7);ctx.fill();
+    }else{
+      drawFood(cat,BD.x+BD.w/2,BD.y+BD.h/2,prog,false,false,1);
+      if(h.kind==="breaded"){
+        ctx.fillStyle="rgba(240,236,220,.5)";
+        ctx.beginPath();ctx.ellipse(BD.x+BD.w/2,BD.y+BD.h/2,30,17,0,0,7);ctx.fill();
+      }
+    }
+  }else{
+    ctx.font="700 12px 'Archivo Narrow','Arial Narrow',sans-serif";
+    ctx.textAlign="center";ctx.fillStyle="rgba(0,0,0,.35)";
+    ctx.fillText("BOARD",BD.x+BD.w/2,BD.y+BD.h/2+4);
+  }
+  /* trash */
+  const T=GEO.trash;
+  ctx.fillStyle="#1a1e22";rr(T.x+18,T.y+20,74,58,7);ctx.fill();
+  ctx.fillStyle="#22272c";rr(T.x+12,T.y+10,86,14,5);ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.07)";ctx.lineWidth=1.5;
+  for(let n=0;n<3;n++){ctx.beginPath();ctx.moveTo(T.x+36+n*19,T.y+30);ctx.lineTo(T.x+36+n*19,T.y+70);ctx.stroke()}
+  ctx.font="700 11px 'Archivo Narrow','Arial Narrow',sans-serif";
+  ctx.textAlign="center";ctx.fillStyle="rgba(141,149,156,.55)";
+  ctx.fillText("WASTE",T.x+55,T.y+90);
+  if(S&&S.hand)targetGlow(T.x+55,T.y+48,96,86,t,false);
+
+  drawParts(fdt);
+  ctx.restore();
+  requestAnimationFrame(drawScene);
+}
+
+/* pointer → world hit test */
+cv.addEventListener("pointerdown",e=>{
+  if(!S||!S.running||S.paused)return;
+  const wx=(e.clientX-view.ox)/view.s, wy=(e.clientY-view.oy)/view.s;
+  for(const h of hits){
+    if(wx>=h.x&&wx<=h.x+h.w&&wy>=h.y&&wy<=h.y+h.h){
+      if(h.kind==="slot")tapSlot(h.st,h.idx);
+      else if(h.kind==="window")tapWindow(h.idx);
+      else if(h.kind==="trash")tapTrash();
+      else if(h.kind==="lowboy"&&!S.hand)openDrawer();
+      return;
+    }
+  }
+});
+
+/* ══════════ DOM UI ══════════ */
+function ticketLineHTML(it){
+  let txt,cls="t-line";
+  if(it.kind==="cook")txt="1 "+COOK[it.product].ticket;
+  else if(it.kind==="cook_choice")txt="1 "+COOK[it.products[0]].ticket.split(" ")[0]+" F/G";
+  else if(it.kind==="side"){cls+=" side";txt="+ "+SIDES.find(s=>s.id===it.product).short}
+  else{cls+=" side";txt="+ "+COLD.find(c=>c.id===it.product).short}
+  if(it.done)cls+=" done";
+  return'<div class="'+cls+'">'+txt+'</div>';
+}
+function renderTickets(){
+  const rail=el("rail");
+  const sl=rail.scrollLeft;
+  rail.innerHTML="";
+  S.orders.forEach((o,i)=>{
+    const card=document.createElement("div");
+    card.className="ticket"+(S.shiftSec-o.born<1.2?" fresh":"");
+    card.dataset.oid=o.id;
+    card.style.setProperty("--tilt",((i*47)%5-2)*.6+"deg");
+    const complete=o.items.every(it=>it.done);
+    card.innerHTML=
+      '<div class="t-head"><span>#'+o.num+'</span><span class="t-type">'+o.type+'</span><span class="t-age"></span></div>'+
+      '<div class="t-meal">'+o.label+' · '+o.who+'</div>'+
+      '<div class="t-items">'+o.items.map(ticketLineHTML).join("")+'</div>'+
+      (complete?'<button class="t-send">SEND</button>':'');
+    card.addEventListener("click",e=>{
+      if(e.target.classList.contains("t-send"))sendOrder(o.id);
+      else tapTicket(o.id);
+    });
+    rail.appendChild(card);
+  });
+  if(S.running){
+    const g=document.createElement("div");
+    g.className="ghost-ticket";g.id="ghost-t";
+    rail.appendChild(g);
+  }
+  rail.scrollLeft=sl;
+  ordersDirty=false;
+  markTicketTargets();
+  updateTicketAges();
+}
+function updateTicketAges(){
+  const rail=el("rail");
+  S.orders.forEach(o=>{
+    const card=rail.querySelector('[data-oid="'+o.id+'"]');
+    if(!card)return;
+    const age=S.shiftSec-o.born,fr=age/o.target;
+    card.dataset.age=fr>=1?"late":fr>=.6?"warn":"ok";
+    const a=card.querySelector(".t-age");
+    if(a)a.textContent=fmt(age);
+  });
+  const g=el("ghost-t");
+  if(g){
+    const d=DIFF[S.diff];
+    g.innerHTML=S.lastCall?"kitchen<br>closed":S.orders.length>=d.max?"line<br>full":
+      S.nextOrderIn>90?"next<br>later":"next<br>~"+Math.max(1,Math.ceil(S.nextOrderIn))+"s";
+  }
+}
+function markTicketTargets(){
+  const key=S?handKey():null;
+  document.querySelectorAll(".ticket").forEach(card=>{
+    const o=S.orders.find(x=>x.id===card.dataset.oid);
+    card.classList.toggle("match",!!(key&&o&&ticketNeeds(o,key)));
+  });
+}
+function renderHand(){
+  const chip=el("hand-chip"),hint=el("hand-hint");
+  if(S&&S.hand){chip.classList.add("show");chip.textContent=handLabel()}
+  else chip.classList.remove("show");
+  hint.textContent=S?handHint():"";
+  document.querySelectorAll(".chip").forEach(c=>{
+    c.classList.toggle("held",!!(S&&S.hand)&&(S.hand.kind==="ing"||S.hand.kind==="side"||S.hand.kind==="cold")&&c.dataset.id===S.hand.id);
+  });
+  markTicketTargets();
+}
+function buildBank(){
+  const pr=el("bank-proteins");pr.innerHTML="";
+  PROTEINS.forEach(p=>{
+    const routes=Object.keys(p.direct).map(k=>k==="bread"?"BRD":k==="fryer"?"FRY":"GRL").join("·");
+    const b=document.createElement("button");
+    b.className="chip";b.dataset.id=p.id;
+    b.innerHTML='<span class="c-name">'+p.name+'</span><span class="c-route">'+routes+'</span><span class="badge"></span>';
+    b.addEventListener("click",()=>tapBank("ing",p.id));
+    pr.appendChild(b);
+  });
+  const ins=el("bank-instant");ins.innerHTML="";
+  SIDES.forEach(s=>{
+    const b=document.createElement("button");
+    b.className="chip";b.dataset.id=s.id;
+    b.innerHTML='<span class="c-name">'+s.short+'</span><span class="c-route">HOT HOLD</span><span class="badge"></span>';
+    b.addEventListener("click",()=>tapBank("side",s.id));
+    ins.appendChild(b);
+  });
+  COLD.forEach(c=>{
+    const b=document.createElement("button");
+    b.className="chip cold-chip";b.dataset.id=c.id;
+    b.innerHTML='<span class="c-name">'+c.short+'</span><span class="c-route">COLD</span><span class="badge"></span>';
+    b.addEventListener("click",()=>tapBank("cold",c.id));
+    ins.appendChild(b);
+  });
+}
+let badgeTimer=0;
+function updateBadges(){
+  if(!S)return;
+  const demand={};
+  S.orders.forEach(o=>o.items.forEach(it=>{
+    if(it.done)return;
+    const keys=it.kind==="cook_choice"?it.products:[it.product];
+    keys.forEach(k=>demand[k]=(demand[k]||0)+(it.kind==="cook_choice"?.5:1));
+  }));
+  document.querySelectorAll("#bank-proteins .chip").forEach(chip=>{
+    const p=PROTEINS.find(x=>x.id===chip.dataset.id);
+    let n=0;
+    Object.values(p.direct).forEach(v=>{
+      const ck=v.startsWith("_")?BREAD_MAP[v]:v;
+      n+=demand[ck]||0;
+      Object.entries(COOK).forEach(([ak,ac])=>{if(ac.needs&&ac.needs.includes(ck))n+=demand[ak]||0});
+    });
+    const b=chip.querySelector(".badge");n=Math.ceil(n);
+    b.classList.toggle("on",n>0);b.textContent=n>9?"9+":n;
+  });
+  document.querySelectorAll("#bank-instant .chip").forEach(chip=>{
+    const n=Math.ceil(demand[chip.dataset.id]||0);
+    const b=chip.querySelector(".badge");
+    b.classList.toggle("on",n>0);b.textContent=n>9?"9+":n;
+  });
+}
+function renderHUD(){
+  if(!S)return;
+  el("score").textContent=S.score;
+  el("tips").textContent=tips;
+  el("streak").textContent=S.streak>=2?"◆×"+S.streak:"";
+  const c=el("clock"),left=S.shiftLen-S.shiftSec;
+  c.textContent=fmt(S.shiftSec);
+  c.style.color=left<=0?"var(--late-hi)":S.lastCall?"var(--warn)":"";
+  el("day-line").textContent="DAY "+day+" · "+LEVELS[careerAt(xp)][1];
+}
+function openDrawer(){el("drawer").classList.add("open");updateBadges()}
+function closeDrawer(){el("drawer").classList.remove("open")}
+
+/* ══════════ SHIFT FLOW ══════════ */
+function startShift(){
+  S=freshState(chosenDiff,chosenSpeed);
+  S.running=true;
+  buildHits();buildBank();renderHand();
+  el("ov-start").classList.add("hidden");
+  el("ov-report").classList.add("hidden");
+  el("ov-shop").classList.add("hidden");
+  closeDrawer();
+  const d=DIFF[S.diff];
+  for(let i=0;i<d.init;i++)spawnOrder();
+  S.nextOrderIn=d.gapMin;
+  renderTickets();updateBadges();renderHUD();
+  lastT=performance.now();
+  sfx.send();
+}
+function endShift(){
+  S.running=false;
+  if(S.score>best){best=S.score;localStorage.setItem("allday_best",JSON.stringify(best))}
+  day++;saveMeta();
+  const avg=S.sent?S.sumTicketTime/S.sent:0;
+  const total=S.sent+S.walked;
+  const acc=total?S.sent/total:0;
+  let g="D",word="Rough shift";
+  if(S.sent>=3&&acc>=.95&&S.late===0&&S.burned===0){g="S";word="Flawless service"}
+  else if(S.sent>=2&&acc>=.9&&S.burned<=1){g="A";word="Solid line cook"}
+  else if(acc>=.7){g="B";word="Getting there"}
+  else if(S.sent>0){g="C";word="Keep drilling"}
+  el("grade").textContent=g;
+  el("grade").classList.toggle("low",g==="C"||g==="D");
+  el("grade-word").innerHTML=word+'<small>'+DIFF[S.diff].name+' · '+S.speed+'× clock</small>';
+  el("earn-line").textContent="+"+S.earned+" tips earned · "+tips+" total";
+  const stat=(v,k,cls)=>'<div class="stat"><div class="v '+(cls||"")+'">'+v+'</div><div class="k">'+k+'</div></div>';
+  el("stat-grid").innerHTML=
+    stat(S.score,"Score")+
+    stat(S.sent,"Tickets sent","good")+
+    stat(S.walked,"Walked",S.walked?"bad":"")+
+    stat(S.burned,"Burned",S.burned?"bad":"")+
+    stat(S.late,"Sent late",S.late?"bad":"")+
+    stat("×"+S.bestStreak,"Best streak")+
+    stat(S.sent?fmt(avg):"—","Avg ticket time")+
+    stat(best,"Best score");
+  let hist=loadJSON("allday_hist",[]);
+  hist.unshift({g,score:S.score,sent:S.sent,walked:S.walked,diff:S.diff,speed:S.speed});
+  hist=hist.slice(0,6);
+  localStorage.setItem("allday_hist",JSON.stringify(hist));
+  el("hist-rows").innerHTML=hist.map((h,i)=>
+    '<div class="hist-row'+(i===0?" now":"")+'"><b>'+h.g+'</b><span>'+DIFF[h.diff].name+' · '+h.speed+'×</span>'+
+    '<span class="hr-n">'+h.sent+' sent'+(h.walked?' · '+h.walked+' walked':'')+'</span><span class="hr-s">'+h.score+'</span></div>'
+  ).join("");
+  el("ov-report").classList.remove("hidden");
+}
+
+/* ══════════ START / SHOP / MENU SCREENS ══════════ */
+function buildStart(){
+  const dc=el("diff-cards");dc.innerHTML="";
+  Object.entries(DIFF).forEach(([k,d])=>{
+    const b=document.createElement("button");
+    b.className="diff-card"+(k===chosenDiff?" on":"");
+    b.innerHTML='<span class="d-dot"></span><span><span class="d-name">'+d.name+'</span><div class="d-desc">'+d.desc+' '+d.shiftMin+'-minute service.</div></span>';
+    b.addEventListener("click",()=>{chosenDiff=k;localStorage.setItem("allday_diff",k);buildStart()});
+    dc.appendChild(b);
+  });
+  const sr=el("speed-row");sr.innerHTML="";
+  [1,2,3,4].forEach(x=>{
+    const b=document.createElement("button");
+    b.className="speed-pill"+(x===chosenSpeed?" on":"");
+    b.textContent=x+"×";
+    b.addEventListener("click",()=>{chosenSpeed=x;localStorage.setItem("allday_speed",JSON.stringify(x));buildStart()});
+    sr.appendChild(b);
+  });
+  el("best-line").textContent=(best?"BEST SCORE  "+best+"   ·   ":"")+"TIPS  "+tips;
+  const li=careerAt(xp);
+  el("career-title").textContent=LEVELS[li][1];
+  const nxt=LEVELS[li+1];
+  el("career-xp").textContent=nxt?xp+" / "+nxt[0]+" XP":xp+" XP · MAXED";
+  el("xp-fill").style.width=nxt?Math.round((xp-LEVELS[li][0])/(nxt[0]-LEVELS[li][0])*100)+"%":"100%";
+}
+function buildShop(){
+  el("shop-tips").textContent="TIPS  "+tips;
+  const box=el("shop-cards");box.innerHTML="";
+  SHOP.forEach(item=>{
+    const owned=item.kind==="gear"?gear[item.key]>=item.to:perks[item.key];
+    const blocked=item.kind==="gear"&&gear[item.key]<item.to-1;
+    const card=document.createElement("div");
+    card.className="shop-card"+(owned?" owned":"");
+    card.innerHTML='<span><span class="s-name">'+item.name+'</span><div class="s-desc">'+item.desc+'</div></span>';
+    const btn=document.createElement("button");
+    btn.className="buy"+(owned?" owned-tag":"");
+    if(owned){btn.textContent="ON THE LINE";btn.disabled=true}
+    else{
+      btn.textContent=item.cost+" TIPS";
+      btn.disabled=tips<item.cost||blocked;
+      if(blocked)btn.textContent="LOCKED";
+      btn.addEventListener("click",()=>{
+        if(tips<item.cost)return;
+        tips-=item.cost;
+        if(item.kind==="gear")gear[item.key]=item.to;else perks[item.key]=true;
+        saveMeta();sfx.coin();buzz(20);
+        toast(item.name+" — on the line","good");
+        buildShop();buildStart();
+      });
+    }
+    card.appendChild(btn);
+    box.appendChild(card);
+  });
+}
+function buildMenuStudy(){
+  const box=el("menu-rows");
+  const breadedKeys=new Set(Object.values(BREAD_MAP));
+  const row=(name,note,time,flip)=>'<div class="menu-row"><span class="m-name">'+name+
+    (note?'<span class="m-note">'+note+'</span>':'')+'</span>'+
+    (flip?'<span class="m-flip">flip '+fmt(flip)+'</span>':'')+
+    (time!=null?'<span class="m-time">'+fmt(time)+'</span>':'')+'</div>';
+  let html="";
+  html+='<div class="menu-sec">FRYER · 350°</div>';
+  Object.entries(COOK).filter(([,c])=>c.st==="fryer").sort((a,b)=>a[1].sec-b[1].sec).forEach(([k,c])=>{
+    html+=row(c.label,breadedKeys.has(k)?"bread first · "+breadSec()+"s":null,c.sec,null);
+  });
+  html+='<div class="menu-sec">GRILL</div>';
+  Object.entries(COOK).filter(([,c])=>c.st==="grill").sort((a,b)=>a[1].sec-b[1].sec).forEach(([,c])=>{
+    html+=row(c.label,null,c.sec,c.flip);
+  });
+  html+='<div class="menu-sec">SAUTÉ</div>';
+  Object.entries(COOK).filter(([,c])=>c.st==="saute").forEach(([,c])=>{
+    html+=row(c.label,"start from cooked "+c.needs.map(n=>COOK[n].label.toLowerCase()).join(" or "),c.sec,null);
+  });
+  html+='<div class="menu-sec">HOT HOLD · COLD — INSTANT</div>';
+  html+='<div class="menu-row"><span class="m-name">'+SIDES.map(s=>s.name).join(" · ")+'<span class="m-note">sides — plate straight to the ticket</span></span></div>';
+  html+='<div class="menu-row"><span class="m-name">'+COLD.map(c=>c.name).join(" · ")+'<span class="m-note">drinks & desserts — plate straight to the ticket</span></span></div>';
+  box.innerHTML=html;
+}
+
+/* ══════════ WIRING ══════════ */
+el("btn-start").addEventListener("click",startShift);
+el("btn-again").addEventListener("click",startShift);
+el("btn-menu2").addEventListener("click",()=>{buildStart();el("ov-report").classList.add("hidden");el("ov-start").classList.remove("hidden")});
+el("btn-end").addEventListener("click",()=>{if(S&&S.running)endShift()});
+el("btn-pause").addEventListener("click",()=>{
+  if(!S||!S.running)return;
+  S.paused=!S.paused;
+  el("pause-veil").classList.toggle("show",S.paused);
+  el("btn-pause").textContent=S.paused?"▶":"II";
+  if(!S.paused)lastT=performance.now();
+});
+el("pause-veil").addEventListener("click",()=>{if(!S)return;S.paused=false;el("pause-veil").classList.remove("show");el("btn-pause").textContent="II";lastT=performance.now()});
+el("btn-sound").addEventListener("click",()=>{
+  soundOn=!soundOn;localStorage.setItem("allday_sound",soundOn?"1":"0");
+  el("btn-sound").style.opacity=soundOn?"1":"0.4";
+});
+el("btn-sound").style.opacity=soundOn?"1":"0.4";
+el("hand-chip").addEventListener("click",()=>{
+  if(!S||!S.hand)return;
+  if(S.hand.kind==="cooked"){toast("Don't waste it — window, ticket, or trash","warn");return}
+  if(S.hand.kind==="breaded"){toast("It's breaded — fryer only now","warn");return}
+  setHand(null);
+});
+el("drawer-tab").addEventListener("click",()=>{
+  if(!S||!S.running)return;
+  el("drawer").classList.contains("open")?closeDrawer():openDrawer();
+});
+document.querySelector(".dr-close").addEventListener("click",closeDrawer);
+el("btn-study").addEventListener("click",()=>{buildMenuStudy();el("ov-menu").classList.remove("hidden")});
+el("btn-study-back").addEventListener("click",()=>el("ov-menu").classList.add("hidden"));
+el("btn-shop").addEventListener("click",()=>{buildShop();el("ov-shop").classList.remove("hidden")});
+el("btn-shop2").addEventListener("click",()=>{buildShop();el("ov-shop").classList.remove("hidden")});
+el("btn-shop-back").addEventListener("click",()=>el("ov-shop").classList.add("hidden"));
+
+buildStart();buildHits();resize();
+requestAnimationFrame(drawScene);
+</script>
