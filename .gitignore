@@ -1,39 +1,47 @@
-!.vscode/extensions.json
-!.vscode/launch.json
-!.vscode/settings.json
-!.vscode/tasks.json
-# IDE - VSCode
-# IDEs and editors
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
-# System Files
+
 # compiled output
-# dependencies
-# misc
-*.launch
-*.sublime-workspace
+dist
+tmp
+out-tsc
 *.tsbuildinfo
-.DS_Store
-.c9/
-.classpath
-.cursor/rules/nx-rules.mdc
 .expo
 .expo-shared
-.github/instructions/nx.instructions.md
-.project
-.settings/
-.vscode/*
+
+# dependencies
+node_modules
+
+# IDEs and editors
 /.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# misc
 /.sass-cache
 /connect.lock
 /coverage
 /libpeerconnection.log
-/typings
-Thumbs.db
-dist
-node_modules
 npm-debug.log
-out-tsc
-testem.log
-tmp
-tools/shot-*.png
 yarn-error.log
+testem.log
+/typings
+
+# System Files
+.DS_Store
+Thumbs.db
+
+.cursor/rules/nx-rules.mdc
+.github/instructions/nx.instructions.md
+
+tools/shot-*.png
