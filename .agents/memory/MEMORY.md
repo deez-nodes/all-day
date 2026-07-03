@@ -1,1 +1,0 @@
-- [Soul Line Trainer dual artifacts](soul-line-dual-artifacts.md) — same game lives as web (`/`) + mobile (`/mobile`); game logic is duplicated, not shared — keep both in sync.

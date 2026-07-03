@@ -2,46 +2,39 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Project status
+## Project
 
-This is a Replit-started prototype that serves as an example of the idea — the entire architecture can change. It has Linux-specific parts that can be misleading; the project is open in PowerShell on Windows. Read `PROJECT.md` for the product premise (a kitchen-line trainer game that simulates a restaurant KDS: tickets come in, ingredients are dragged from a food bank to cooking stations with cook timers, finished items are plated to complete orders).
+**ALL DAY** — a kitchen-line trainer game for landscape phones. Single self-contained
+`src/index.html` (vanilla JS): a pure simulation engine (menu data, cook timers, tickets,
+scoring, economy) driving a Canvas 2D kitchen scene with DOM overlays (ticket rail, lowboy
+drawer, HUD, start/report/shop screens). No frameworks, no build step, no runtime deps.
+`docs/PROJECT.md` has the product premise (training tool for real line cooks; the menu and
+cook times are real and must stay accurate).
 
-`ARCHITECTURE.md` and `DEPLOY.md` are legacy Replit docs, but they contain the most detailed notes on game mechanics, key files, and hard-won DnD/layout gotchas — read them before touching game code.
-
-## Windows gotcha (important)
-
-`pnpm-workspace.yaml` contains package overrides that intentionally exclude ALL non-Linux-x64 platform binaries (esbuild, rollup, lightningcss, tailwind-oxide — including all `win32-*` variants, mapped to `"-"`). Installing and building on this Windows machine will fail with missing-native-binary errors until those overrides are removed or replaced. Node 24 + pnpm are the expected toolchain.
+Published artifact (redeploy target): https://claude.ai/code/artifact/3c5bd516-58a6-4d7a-8953-d777d617aa25
 
 ## Commands
 
-- `pnpm run typecheck` — full typecheck across all packages (libs via `tsc --build`, then per-package `typecheck` scripts)
-- `pnpm run build` — typecheck + build all packages
-- `pnpm --filter @workspace/soul-line-web run dev` — run the primary web game
-- `pnpm --filter @workspace/soul-line-trainer run dev` — run the Expo mobile game
-- `pnpm --filter @workspace/api-server run dev` — run the Express API server
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks + Zod schemas from the OpenAPI spec (Orval)
-- `pnpm --filter @workspace/db run push` — push Drizzle schema changes (dev only)
-- Typecheck a single package: `pnpm --filter <pkg> run typecheck`
+- `npm test` — headless QA: `tests/game.test.js` runs the full interaction suite in jsdom (needs `npm install` once for jsdom). This is the verification step; there is no typecheck/linter.
+- `npm run dev` — serve `src/` locally.
 
-There are no tests or linters configured; `typecheck` is the verification step. The Vite apps (`soul-line-web`, `mockup-sandbox`) fail fast if `PORT` and `BASE_PATH` env vars are unset (e.g. web app ran with `PORT=23262 BASE_PATH=/`).
+## Working on the game
 
-## Architecture
+- The sim and the scene are deliberately separated inside `index.html`: game rules live in
+  the DATA/ACTIONS/TICK sections and never touch the canvas; the scene reads state each
+  frame. Keep it that way — tests drive the sim functions directly (`tapBank`, `tapSlot`,
+  `tapWindow`, `tapTicket`, `sendOrder`, `startShift`, `endShift`).
+- Interaction model is tap-to-route (no drag-and-drop): pick → valid targets glow → tap target.
+  Station/window slot counts come from the persisted `gear` object (upgrade shop), so never
+  hardcode slot counts.
+- jsdom has no canvas: all drawing is guarded behind a null `ctx`; keep new draw code inside
+  `drawScene` or similarly guarded.
+- After changes: `npm test`, then visually verify with a puppeteer-core screenshot at
+  844×390 (local Chrome at `C:\Program Files\Google\Chrome\Application\chrome.exe`) before
+  redeploying the artifact.
 
-pnpm workspace monorepo (TypeScript 5.9). `artifacts/` holds deployable apps, `lib/` holds shared packages consumed as raw TS source via `workspace:*`.
+## History
 
-### The game exists twice — keep both in sync
-
-The game logic is intentionally duplicated, not shared through a lib:
-
-- `artifacts/soul-line-web` (**primary**) — React + Vite desktop/wide-screen app. Engine in `src/game/GameContext.tsx`, entire game UI in `src/pages/Game.tsx`, dependency-free HTML5 drag-and-drop in `src/components/game/DnD.tsx`. Persists to `localStorage`; no backend.
-- `artifacts/soul-line-trainer` — Expo / React Native (Expo Router) mobile app. Engine in `context/GameContext.tsx`, main screen in `app/index.tsx`, gesture-handler-based DnD in `lib/dnd.tsx`. Persists to AsyncStorage; no backend.
-
-The web `GameContext.tsx` is a 1:1 port of the mobile one (only AsyncStorage→localStorage differs). **Any change to game rules, data, timers, or scoring must be applied to BOTH copies.**
-
-Interaction model in both apps: drag-and-drop AND tap/click-to-pick both work. Pick functions are toggles — drop/place handlers must only place, never re-call pick (re-calling clears the picked item; this caused a real drag-placement bug). See `ARCHITECTURE.md` for the mobile DnD `unregisterZone` ref gotcha and portrait-layout flexbox constraints.
-
-### Backend chain (scaffolding, unused by the games)
-
-`lib/api-spec` (OpenAPI spec + Orval codegen) → generates into `lib/api-zod` (Zod schemas) and `lib/api-client-react` (TanStack Query hooks) → consumed by `artifacts/api-server` (Express 5 + Drizzle/PostgreSQL via `lib/db`, bundled with esbuild). The spec is the source of truth: edit it, then run codegen — don't hand-edit generated output.
-
-`artifacts/mockup-sandbox` is a dev-only component preview app (shadcn/Radix UI); `scripts/` is a scratch package for one-off tsx scripts.
+The first commit (`Snapshot: Replit-era monorepo before restructure`) preserves the old
+Replit prototype (soul-line-web / soul-line-trainer / api chain). Recover legacy files from
+there if ever needed; do not reintroduce the monorepo structure.
