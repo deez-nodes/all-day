@@ -9,10 +9,10 @@ docs (seeded by id: 2) and mirrored here only so this repo records when the port
 
 # id: 1 — Freeze the prototype (M0)
 
-- [ ] Iteration 02 fully cleared (`../02/Tasks.md` all checked), `npm test` green
-- [ ] `npm run shot` final reference screenshots committed under `docs/reference/prototype-final/`
-- [ ] Tag `prototype-final` on the freezing commit
-- [ ] Write `../03/NOTES.md` — the 02→03 handoff, including anything 02 learned about the sim's true boundaries
+- [x] Iteration 02 fully cleared (`../02/Tasks.md` all checked), `npm test` green
+- [x] Reference screenshots committed under `docs/reference/prototype-final/` (`node tools/shot.js <dir>`)
+- [x] Tag `prototype-final` on the freezing commit
+- [x] [NOTES](NOTES.md) written — the 02→03 handoff, including the sim's true boundaries and the `EVENT_EFFECTS` seam
 
 ---
 
