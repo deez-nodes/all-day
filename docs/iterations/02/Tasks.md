@@ -22,6 +22,6 @@ Split *decide* from *do*; the `tap*` actions stay as the mutation layer.
 
 # id: 3 — S1 Order Creation: menu as a client pack ([01/SYSTEMS](../01/SYSTEMS.md))
 
-- [ ] Gather `COOK`, `BREAD_MAP`, `PROTEINS`, `SIDES`, `COLD`, `MENU`, `SIMPLE_IDS`, `COMBO_POOL` (and the food-category color tables) into one client-pack object with a defined shape
-- [ ] Sim reads only the pack — no direct references to the old globals
-- [ ] Proves out `CFG-01` (swappable menu) and opens the door to the Longhorn pack the user is considering
+- [x] `CLIENT_PACK` object in DATA holds cook/breadMap/proteins/sides/cold/drinkIds/dessertIds/menu/simpleIds/comboPool/combo/foodColors (raw+cooked), keyed by pack `id`
+- [x] The old globals are now destructured views of the pack (`const {cook:COOK,…}=CLIENT_PACK`) — call sites untouched, swap the pack literal and everything follows; scene color tables read `CLIENT_PACK.foodColors`
+- [x] CFG-01 proven: a Longhorn pack is now one object literal with the same shape

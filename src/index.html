@@ -423,7 +423,9 @@ const DOM={
 };
 
 /* ══════════ DATA ══════════ */
-const COOK = {
+const CLIENT_PACK={
+id:"house",
+cook:{
   wings_bone:{sec:600,station:ST_FRYER,flip:null,label:"Bone-In Wings",ticket:"Wings BONE-IN",cat:"chunks"},
   turkey_wings:{sec:720,station:ST_FRYER,flip:null,label:"Turkey Wings",ticket:"Turkey Wings FRIED",cat:"chunks"},
   fritters:{sec:240,station:ST_FRYER,flip:null,label:"Conch Fritters",ticket:"Conch Fritters",cat:"chunks"},
@@ -445,10 +447,9 @@ const COOK = {
   alfredo_chx:{sec:240,station:ST_SAUTE,flip:null,label:"Chicken Alfredo",ticket:"Chicken Alfredo",cat:"pasta",needs:["grilled_chx","crispy_chx"]},
   alfredo_shrimp:{sec:240,station:ST_SAUTE,flip:null,label:"Shrimp Alfredo",ticket:"Shrimp Alfredo",cat:"pasta",needs:["grilled_shrimp","fried_shrimp"]},
   alfredo_salmon:{sec:240,station:ST_SAUTE,flip:null,label:"Salmon Alfredo",ticket:"Salmon Alfredo",cat:"pasta",needs:["grilled_salmon"]},
-};
-const BREAD_MAP = {_bls:"wings_bls",_tenders:"tenders",_crispy:"crispy_chx",_snap:"fried_snapper",_shr:"fried_shrimp",_conch:"cracked_conch",_gator:"gator_bites",_lamb:"fried_lamb"};
-
-const PROTEINS = [
+},
+breadMap:{_bls:"wings_bls",_tenders:"tenders",_crispy:"crispy_chx",_snap:"fried_snapper",_shr:"fried_shrimp",_conch:"cracked_conch",_gator:"gator_bites",_lamb:"fried_lamb"},
+proteins:[
   {id:"raw_wings",   name:"Wings Bone-In", direct:{fryer:"wings_bone"}},
   {id:"raw_bls",     name:"Boneless",      direct:{bread:"_bls"}},
   {id:"raw_tenders", name:"Tenders",       direct:{bread:"_tenders"}},
@@ -463,25 +464,25 @@ const PROTEINS = [
   {id:"raw_steak",   name:"Strip Steak",   direct:{grill:"steak_well"}},
   {id:"raw_lamb",    name:"Lamb Chops",    direct:{bread:"_lamb",grill:"lamb_well"}},
   {id:"raw_fries",   name:"Fries",         direct:{fryer:"fries"}},
-];
-const SIDES = [
+],
+sides:[
   {id:"side_mac",name:"Mac n Cheese",short:"Mac"},
   {id:"side_greens",name:"Southern Greens",short:"Greens"},
   {id:"side_yams",name:"Yams",short:"Yams"},
   {id:"side_corn",name:"Cream Corn",short:"Corn"},
   {id:"side_pots",name:"Smoth. Potatoes",short:"Sm Pots"},
-];
-const COLD = [
+],
+cold:[
   {id:"d_orange",name:"Orange Drank",short:"Orange"},
   {id:"d_lemon",name:"Lemonade",short:"Lemonade"},
   {id:"d_tea",name:"Sweet Tea",short:"Swt Tea"},
   {id:"des_pud",name:"Banana Pudding",short:"B.Puddin"},
   {id:"des_cake",name:"Creamsicle Cake",short:"Cake"},
   {id:"des_cook",name:"RV Cookies",short:"Cookies"},
-];
-const SIDE_IDS=SIDES.map(s=>s.id), COLD_DRINKS=["d_orange","d_lemon","d_tea"], COLD_DES=["des_pud","des_cake","des_cook"];
-
-const MENU = [
+],
+drinkIds:["d_orange","d_lemon","d_tea"],
+dessertIds:["des_pud","des_cake","des_cook"],
+menu:[
   {id:"WINGS_DIN",name:"Wings Dinner",target:600,cook:[["wings_bone"]],sides:2,drink:1,dessert:.4},
   {id:"WINGS_FRIES",name:"Wings & Fries",target:540,cook:[["wings_bone"],["fries"]],drink:1,dessert:.2},
   {id:"BLS_DIN",name:"Boneless Basket",target:500,cook:[["wings_bls"],["fries"]],drink:1,dessert:.2},
@@ -501,10 +502,18 @@ const MENU = [
   {id:"WINGS_APP",name:"Wings — App",target:540,cook:[["wings_bone"]],drink:.5},
   {id:"FRITTERS",name:"6 Conch Fritters",target:300,cook:[["fritters"]]},
   {id:"SHRIMP_APP",name:"6 Jumbo Shrimp",target:300,cook:[["fried_shrimp"]]},
-];
-const SIMPLE_IDS=["WINGS_DIN","WINGS_FRIES","BLS_DIN","TENDER_DIN","WINGS_APP","FRITTERS"];
-const COMBO_POOL=["wings_bone","tenders","grilled_chx","crispy_chx","fried_snapper","grilled_snapper","fried_shrimp","grilled_shrimp","cracked_conch","gator_bites"];
-const COMBO_LABEL="Combo · Pick 2",COMBO_TARGET_SEC=780;
+],
+simpleIds:["WINGS_DIN","WINGS_FRIES","BLS_DIN","TENDER_DIN","WINGS_APP","FRITTERS"],
+comboPool:["wings_bone","tenders","grilled_chx","crispy_chx","fried_snapper","grilled_snapper","fried_shrimp","grilled_shrimp","cracked_conch","gator_bites"],
+combo:{label:"Combo · Pick 2",targetSec:780},
+foodColors:{
+  raw:{chunks:[214,178,150],fillet:[219,196,183],shrimp:[209,185,178],slab:[168,58,53],fries:[229,214,166],pasta:[232,220,194]},
+  cooked:{chunks:[178,110,42],fillet:[190,128,55],shrimp:[214,126,63],slab:[95,58,40],fries:[214,161,59],pasta:[228,206,160]},
+},
+};
+const {cook:COOK,breadMap:BREAD_MAP,proteins:PROTEINS,sides:SIDES,cold:COLD,menu:MENU,simpleIds:SIMPLE_IDS,comboPool:COMBO_POOL}=CLIENT_PACK;
+const SIDE_IDS=SIDES.map(s=>s.id),COLD_DRINKS=CLIENT_PACK.drinkIds,COLD_DES=CLIENT_PACK.dessertIds;
+const COMBO_LABEL=CLIENT_PACK.combo.label,COMBO_TARGET_SEC=CLIENT_PACK.combo.targetSec;
 
 const DIFF = {
   [DIFF_EASY]:  {name:"STAGE",desc:"Trailing shift. 1–3 tickets, simple menu, slow pace.",init:1,max:3,gapMin:30,gapMax:50,simple:true,combo:0,shiftMin:20},
@@ -975,8 +984,8 @@ function lerpC(from,to,frac){
   frac=clamp(frac,0,1);
   return"rgb("+Math.round(from[0]+(to[0]-from[0])*frac)+","+Math.round(from[1]+(to[1]-from[1])*frac)+","+Math.round(from[2]+(to[2]-from[2])*frac)+")";
 }
-const RAW_FOOD_COLORS={chunks:[214,178,150],fillet:[219,196,183],shrimp:[209,185,178],slab:[168,58,53],fries:[229,214,166],pasta:[232,220,194]};
-const COOKED_FOOD_COLORS={chunks:[178,110,42],fillet:[190,128,55],shrimp:[214,126,63],slab:[95,58,40],fries:[214,161,59],pasta:[228,206,160]};
+const RAW_FOOD_COLORS=CLIENT_PACK.foodColors.raw;
+const COOKED_FOOD_COLORS=CLIENT_PACK.foodColors.cooked;
 const CHARRED_COLOR=[26,19,15];
 function foodColor(cat,prog,burnt){
   if(burnt)return lerpC(COOKED_FOOD_COLORS[cat],CHARRED_COLOR,1);
