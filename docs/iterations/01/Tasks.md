@@ -2,7 +2,7 @@
 
 Read [NOTES](NOTES.md) first — it records the state of the repo at birth (M1). Milestone
 definitions and the port decisions (D1–D5) live in
-`cook-trainer/docs/iterations/03/PORT.md`; each milestone ends green (`npm test` +
+`prototype/docs/iterations/03/PORT.md`; each milestone ends green (`npm test` +
 screenshots eyeballed) before the next begins.
 
 # id: 1 — Port the sim (M2)

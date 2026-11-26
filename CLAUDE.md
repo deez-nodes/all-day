@@ -42,7 +42,7 @@ wrapper) are redeploy targets, never the product's home.
 > If a pattern exists only because the prototype did it that way, stop and redesign it
 > in the current stack's idiom.
 
-The frozen prototype lives in the sibling `cook-trainer` repo (tag `prototype-final`).
+The frozen prototype lives in `prototype/` (tag `prototype-final`).
 Behavior questions about it are answered by writing a test against the sim there,
 watching it pass, and carrying the *test* — scene code is never read as a spec.
 `docs/reference/` holds the carried visual references and prototype screenshots.

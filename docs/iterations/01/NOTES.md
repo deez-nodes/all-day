@@ -1,7 +1,7 @@
 # Iteration 01 — Notes at birth
 
 State of the repo as of 2026-07-03, the day M1 closed. This repo was seeded from
-`cook-trainer/docs/iterations/03/PORT.md`; the decisions (D1–D5), carry allowlist, and
+`prototype/docs/iterations/03/PORT.md`; the decisions (D1–D5), carry allowlist, and
 milestone definitions live there.
 
 ## What exists
@@ -33,4 +33,4 @@ milestone definitions live there.
   presentation, not of mutation. Keep that contract; `EVENT_EFFECTS` is the seam the
   Phaser scene plugs into.
 - Behavior questions about the prototype: write a test against the sim in
-  `cook-trainer`, watch it pass, carry the test. Never read its scene code as a spec.
+  `prototype/`, watch it pass, carry the test. Never read its scene code as a spec.
