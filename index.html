@@ -2,23 +2,156 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
-    <title>ALL DAY</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <title>ALL DAY — Line Trainer</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <style>
-      html,
-      body {
-        margin: 0;
-        height: 100%;
-        background: #101216;
-      }
-      #game {
-        height: 100%;
-      }
-    </style>
   </head>
   <body>
-    <div id="game"></div>
+    <div id="game">
+      <canvas id="scene"></canvas>
+
+      <div id="hud">
+        <div class="wordmark">ALL DAY</div>
+        <div class="day" id="day-line">DAY 1</div>
+        <div class="clock" id="clock">00:00</div>
+        <div class="spacer"></div>
+        <div id="streak"></div>
+        <div id="score">0</div>
+        <div id="tips">0</div>
+        <button class="hud-btn" id="btn-sound" aria-label="Toggle sound">
+          ♪
+        </button>
+        <button class="hud-btn" id="btn-pause" aria-label="Pause">II</button>
+        <button class="hud-btn end" id="btn-end">END</button>
+      </div>
+
+      <div id="rail"></div>
+
+      <div id="handbar">
+        <button id="hand-chip"></button>
+        <span id="hand-hint"
+          >Open the LOWBOY, or tap the counter, to grab food.</span
+        >
+      </div>
+      <button id="drawer-tab">LOWBOY ▲</button>
+
+      <div id="drawer">
+        <div class="dr-head">
+          <span class="dr-title">LOWBOY — WALK-IN STOCK</span
+          ><button class="dr-close" aria-label="Close">✕</button>
+        </div>
+        <div class="row-label">PROTEINS — RAW</div>
+        <div class="bank-row" id="bank-proteins"></div>
+        <div class="row-label">SIDES · COLD — PLATE STRAIGHT TO TICKET</div>
+        <div class="bank-row" id="bank-instant"></div>
+      </div>
+
+      <div id="toasts"></div>
+      <div id="pause-veil"><div class="p-word">PAUSED</div></div>
+      <div id="rotate">
+        <div class="r-icon">⟳</div>
+        <p>
+          <b>Turn your phone sideways.</b><br />The line runs wide — like the
+          real one.
+        </p>
+      </div>
+
+      <!-- START -->
+      <div class="overlay" id="ov-start">
+        <div class="ov-inner">
+          <div class="ov-mark">ALL <em>DAY</em></div>
+          <p class="ov-sub">
+            Run a real kitchen line. Read the tickets, work the stations, make
+            your times — then spend your tips building out the line.
+          </p>
+          <div class="ov-best" id="best-line"></div>
+          <div class="career-line">
+            <span class="cl-title" id="career-title">DISH PIT</span>
+            <span class="cl-xp" id="career-xp"></span>
+          </div>
+          <div class="xpbar"><i id="xp-fill" style="width: 0%"></i></div>
+          <div class="ov-label">SHIFT</div>
+          <div id="diff-cards"></div>
+          <div class="ov-label">CLOCK SPEED</div>
+          <div class="speed-row" id="speed-row"></div>
+          <div class="speed-note">
+            Cook times are true to the menu. 3× keeps a 10-minute wing drop at a
+            playable pace.
+          </div>
+          <button class="cta" id="btn-start">CLOCK IN</button>
+          <div class="ov-row" style="margin-top: 8px">
+            <button class="btn-ghost" id="btn-study">STUDY THE MENU</button>
+            <button class="btn-ghost" id="btn-shop">UPGRADE THE LINE</button>
+          </div>
+          <div class="how">
+            <b>How it runs:</b> tap the lowboy for raw food, then tap a glowing
+            station in the kitchen. Breaded items take a pass through the
+            breading table first. Grill items flash <b>FLIP</b> halfway — miss
+            it and they burn. When food is up, grab it and tap the ticket it
+            belongs to, or hold it under the pass lamps. <b>SEND</b> a finished
+            ticket to bump it.
+          </div>
+        </div>
+      </div>
+
+      <!-- MENU STUDY -->
+      <div class="overlay hidden" id="ov-menu">
+        <div class="ov-inner">
+          <div class="ov-mark" style="font-size: 28px">THE <em>MENU</em></div>
+          <p class="ov-sub">
+            Every item, its station, and its clock. Flip items burn 60s after a
+            missed flip; everything dies 60s after it's up.
+          </p>
+          <div id="menu-rows"></div>
+          <button class="cta" id="btn-study-back" style="margin-top: 16px">
+            BACK
+          </button>
+        </div>
+      </div>
+
+      <!-- SHOP -->
+      <div class="overlay hidden" id="ov-shop">
+        <div class="ov-inner">
+          <div class="ov-mark" style="font-size: 28px">THE <em>LINE</em></div>
+          <p class="ov-sub">
+            Build out your kitchen with tips. New equipment shows up on the line
+            next shift.
+          </p>
+          <div class="ov-best" id="shop-tips"></div>
+          <div id="shop-cards"></div>
+          <button class="cta" id="btn-shop-back" style="margin-top: 14px">
+            BACK
+          </button>
+        </div>
+      </div>
+
+      <!-- REPORT -->
+      <div class="overlay hidden" id="ov-report">
+        <div class="ov-inner">
+          <div class="ov-mark" style="font-size: 28px">
+            SHIFT <em>REPORT</em>
+          </div>
+          <div class="grade-wrap">
+            <div class="grade" id="grade">A</div>
+            <div>
+              <div class="grade-word" id="grade-word"></div>
+              <div class="earn-line" id="earn-line"></div>
+            </div>
+          </div>
+          <div class="stat-grid" id="stat-grid"></div>
+          <div class="ov-label">RECENT SHIFTS</div>
+          <div id="hist-rows"></div>
+          <div class="ov-row">
+            <button class="btn-ghost" id="btn-menu2">CHANGE SHIFT</button>
+            <button class="btn-ghost" id="btn-shop2">UPGRADE</button>
+            <button class="cta" id="btn-again">RUN IT BACK</button>
+          </div>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

@@ -17,46 +17,28 @@ wrapper) are redeploy targets, never the product's home.
 
 ## Architecture
 
-- `src/sim/` is pure: no imports from `src/scene/`, no DOM, no Phaser, no audio. Game
-  rules, menu data (the client pack), cook timers, tickets, scoring, and economy live
-  here. Steppers mutate sim state and return event objects — pure of presentation, not
-  of mutation.
-- The scene reads sim state each frame and calls sim actions; nothing else crosses the
-  boundary. Presentation effects (sfx, toasts, buzz) hang off the event seam on the
-  scene side.
-- Interaction is drag-and-drop; tap-to-route is the fallback. Both input paths call the
-  same sim actions.
-- Slot counts (stations, window) come from the persisted `gear` object — never hardcoded.
+- `index.html` and `src/styles.css` define the overlays and responsive layout.
+- `src/line-game.js` coordinates shift actions, DOM updates, audio and saved progress.
+- `src/sim/` holds the menu, order generation, station rules and time steppers.
+  It has no dependencies on the browser DOM or Phaser.
+- `src/scene/KitchenScene.js` runs the simulation clock and renders the kitchen into
+  Phaser's Canvas renderer. `src/scene/kitchen-renderer.js` draws the scene and
+  routes taps to the same shift actions used by the overlays.
+- Equipment controls slot counts. Existing `allday_*` localStorage keys and data
+  shapes preserve players' saves. Menu data and cook times live in the client pack.
 
-## Invariants
-
-- The save format is versioned behind a schema key. A one-time migration reads legacy
-  `allday_*` localStorage shapes from the prototype; new code never writes legacy shapes.
-- Menu and cook times are real. Changing client data means a new client pack, not edits
-  scattered through code.
-- Tests drive the sim directly through its actions; rendering is verified by the
-  screenshot harness, never by tests reaching into the scene.
-
-## Ratchet rule
-
-> If a pattern exists only because the prototype did it that way, stop and redesign it
-> in the current stack's idiom.
-
-The frozen prototype lives in `prototype/` (tag `prototype-final`).
-Behavior questions about it are answered by writing a test against the sim there,
-watching it pass, and carrying the *test* — scene code is never read as a spec.
-`docs/reference/` holds the carried visual references and prototype screenshots.
+The frozen prototype is available at the `prototype-final` tag. Its design notes
+are under `docs/history/prototype/` and reference screenshots are under
+`docs/reference/prototype-final/`.
 
 ## Commands
 
-- `npm test` — Vitest, sim only. The verification step; there is no typecheck/linter.
-- `npm run shot [dir]` — boots the Vite dev server and headless Chrome, screenshots the
-  scene, exits 1 on any page error. The only coverage rendering gets. Default output:
-  `shots/` (gitignored).
-- `npm run dev` — Vite dev server.
-- `npm run build` — portable static bundle to `dist/`.
-
-After changes: `npm test`, then `npm run shot` and eyeball the screenshots.
+- `npm ci` installs locked dependencies.
+- `npm run dev` starts the Vite development server.
+- `npm test` runs the Vitest gameplay and configuration checks.
+- `npm run build` creates the static bundle in `dist/`.
+- `CHROME_PATH=/usr/bin/chromium npm run shot` checks the playable flow in Chromium
+  and writes screenshots to `shots/`. Set `CHROME_PATH` to the local executable.
 
 ## Iteration workflow
 
